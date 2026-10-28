@@ -1,0 +1,4 @@
+# HellLocker: link the C runtime into the exe, so HellLocker.exe runs on its own
+# without the Visual C++ Redistributable installed.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

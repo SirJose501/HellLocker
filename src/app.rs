@@ -1,0 +1,495 @@
+mod failure;
+mod help;
+mod panel;
+mod settings;
+mod worker;
+
+use std::path::Path;
+use std::sync::mpsc::TryRecvError;
+use std::time::{Duration, Instant};
+
+use anyhow::{Context, Result};
+use tracing::{Level, error, info, warn};
+
+use crate::app_paths::AppPaths;
+use crate::config::{AppConfig, ShortcutBindings, load_app_config};
+use crate::preset::{PresetScope, archive_legacy_preset_file};
+use crate::preset_action::{PresetActionOptions, PresetCommand};
+use crate::{game_window, input, platform, ui};
+use worker::{ActionWorker, Work, WorkerEvent};
+
+const HOTKEY_RELEASE_TIMEOUT: Duration = Duration::from_secs(5);
+const ACTIVATION_CONFIRM_TIMEOUT: Duration = Duration::from_millis(200);
+const ACTION_COOLDOWN: Duration = Duration::from_millis(200);
+
+struct PresetHotkeyBinding {
+    hotkey: input::HotkeySpec,
+    preset: String,
+}
+
+fn preset_hotkeys(config: &ShortcutBindings) -> Result<Vec<PresetHotkeyBinding>> {
+    let mut bindings = Vec::new();
+    for (preset, value) in &config.presets {
+        if let Some(shortcut) = ShortcutBindings::parse(value)? {
+            bindings.push(PresetHotkeyBinding {
+                hotkey: shortcut.spec(1001 + bindings.len() as i32),
+                preset: preset.clone(),
+            });
+        }
+    }
+    Ok(bindings)
+}
+
+fn panel_hotkey(config: &ShortcutBindings) -> Result<input::Hotkeys> {
+    let specs: Vec<_> = ShortcutBindings::parse(&config.panel)?
+        .map(|key| key.spec(1))
+        .into_iter()
+        .collect();
+    input::Hotkeys::new(&specs)
+}
+
+/// HellLocker: passed to the copy started after a restore, which waits for this one
+/// to close.
+const RESTARTED_ARG: &str = "--restarted";
+
+fn acquire_instance() -> Result<Option<platform::SingleInstance>> {
+    let restarted = std::env::args().any(|arg| arg == RESTARTED_ARG);
+    let started = Instant::now();
+    loop {
+        let instance = platform::SingleInstance::try_acquire()?;
+        if instance.is_some() || !restarted || started.elapsed() > Duration::from_secs(15) {
+            return Ok(instance);
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+/// HellLocker: start a new copy once this one has finished closing.
+fn restart() {
+    match std::env::current_exe() {
+        Ok(exe) => {
+            if let Err(error) = std::process::Command::new(exe).arg(RESTARTED_ARG).spawn() {
+                error!(%error, "could not restart HellLocker");
+            }
+        }
+        Err(error) => error!(%error, "could not restart HellLocker"),
+    }
+}
+
+pub fn run() -> Result<()> {
+    let Some(_instance) = acquire_instance()? else {
+        platform::show_notice(
+            "HellLocker",
+            "HellLocker is already running. Check the system tray.",
+        );
+        return Ok(());
+    };
+    let paths = AppPaths::resolve()?;
+    let _log_guard = crate::logging::init(
+        &paths.log,
+        if cfg!(feature = "diagnostics") {
+            Level::DEBUG
+        } else {
+            Level::INFO
+        },
+    )?;
+    info!(
+        version = env!("CARGO_PKG_VERSION"),
+        diagnostics = cfg!(feature = "diagnostics"),
+        "application starting"
+    );
+    // HellLocker: a restore picked in Settings > Help is swapped in here.
+    let data_dir = paths.config.parent().unwrap_or(Path::new("."));
+    match crate::backup::apply_pending(data_dir) {
+        Ok(true) => info!("presets and settings restored from a backup"),
+        Ok(false) => {}
+        Err(error) => {
+            error!(error = %format!("{error:#}"), "restore failed");
+            platform::show_error(
+                "HellLocker - Restore failed",
+                &format!(
+                    "The backup could not be restored:\r\n{error:#}\r\n\r\nYour presets before the restore are in the backups folder (before-restore.zip)."
+                ),
+            );
+        }
+    }
+    let config_path = &paths.config;
+    let presets_path = &paths.presets;
+    let result = load_app_config(config_path).and_then(|(config, migrated)| {
+        let legacy_presets = archive_legacy_preset_file(presets_path)?;
+        if migrated {
+            platform::show_notice(
+                "HellLocker - Configuration Updated",
+                &format!("Your preset shortcuts were preserved and now APPLY saved presets only.\r\n\r\nTo save, open the panel and use Save preset or Ctrl+S. Modifier keys alone no longer open the panel.\r\n\r\nPanel shortcut: {}\r\nYou can change or clear each shortcut in Settings > Shortcuts. Saved presets were not changed.",
+                    if config.ui.panel_shortcut.is_empty() { "Unassigned (use the tray)" } else { &config.ui.panel_shortcut }),
+            );
+        }
+        if let Some(backup_path) = legacy_presets {
+            info!(
+                path = %presets_path.display(),
+                backup = %backup_path.display(),
+                "legacy preset data archived"
+            );
+            show_preset_format_updated(&backup_path);
+        }
+        run_with_config(config, &paths)
+    });
+    if let Err(error) = &result {
+        error!(error = %format!("{error:#}"), "application terminated");
+    } else if crate::backup::restart_requested() {
+        info!("restarting");
+        restart();
+    }
+    result
+}
+
+fn run_with_config(config: AppConfig, paths: &AppPaths) -> Result<()> {
+    // HellLocker: the panel size. Slint reads this once, when it creates its windows, and
+    // then uses it in place of the display scale, so it includes the display scale.
+    let scale = platform::system_scale() * config.ui.ui_scale();
+    // SAFETY: set before the UI and the action worker start; the log writer thread
+    // does not read the environment.
+    unsafe { std::env::set_var("SLINT_SCALE_FACTOR", format!("{scale:.3}")) };
+    info!(scale, "panel scale");
+    let shortcut_bindings = config.shortcut_bindings();
+    let bindings = preset_hotkeys(&shortcut_bindings)?;
+    let specs: Vec<_> = bindings.iter().map(|binding| binding.hotkey).collect();
+    let hotkeys = input::Hotkeys::new(&specs)?;
+    let panel_hotkey = panel_hotkey(&shortcut_bindings)?;
+    let settings = PresetActionOptions {
+        attire: config.presets.attire_choice(),
+        apply_in_saved_order: config.presets.apply_in_saved_order,
+        auto_ready_up: config.presets.auto_ready_up,
+        save_fallback_when_taken: config.presets.save_fallback_when_taken,
+    };
+    let worker = ActionWorker::start(paths.clone())?;
+    let preset_info = config
+        .presets
+        .slots
+        .iter()
+        .map(|(name, slot)| ui::PresetInfo {
+            name: name.clone(),
+            label: slot.label.trim().into(),
+            shortcut: slot.shortcut.clone(),
+            faction: slot.faction,
+            subfaction: slot.subfaction,
+            mission: slot.mission,
+        })
+        .collect();
+    let saved_position = config.ui.panel_position();
+    let (keep_open, ui_scale) = (config.ui.keep_open, config.ui.ui_scale());
+    let background_opacity = config.ui.background_opacity();
+    let mut ui = ui::AppUi::new(
+        preset_info,
+        config.ui.monitor,
+        config.ui.language,
+        paths.presets.clone(),
+    )?;
+    ui.set_scope(config.presets.scope);
+    ui.set_layout(crate::folders::Layout::new(
+        config.presets.folders.clone(),
+        config.presets.order.clone(),
+        config.presets.slots.keys().map(String::as_str),
+    ));
+    ui.set_view(
+        config.ui.view_faction,
+        config.ui.view_subfaction,
+        config.ui.view_mission,
+    );
+    ui.set_saved_position(saved_position);
+    ui.set_background_opacity(background_opacity);
+    ui.set_status_popup(config.ui.status_popup)?;
+    crate::timing::set_patient(config.presets.patient_mode);
+    ui.set_attire(config.presets.attire_choice());
+    ui.set_panel_shortcut(&shortcut_bindings.panel);
+    let mut app = AppController {
+        paths: paths.clone(),
+        bindings,
+        hotkeys,
+        panel_hotkey,
+        shortcut_bindings,
+        scope: config.presets.scope,
+        worker,
+        settings,
+        state: ActionState::Idle,
+        exiting: false,
+        ready_after: Instant::now(),
+        prewarm_requested: false,
+        panel_return_target: None,
+        keep_open,
+        ui_scale,
+        background_opacity,
+        status_popup: config.ui.status_popup,
+        save_sound: config.ui.save_sound,
+        reveal_after_action: false,
+        ui,
+    };
+    info!(
+        hotkey_count = specs.len(),
+        apply_in_saved_order = settings.apply_in_saved_order,
+        auto_ready_up = settings.auto_ready_up,
+        save_fallback_when_taken = settings.save_fallback_when_taken,
+        "application ready"
+    );
+    // Native window placement and focus require an active UI event loop.
+    let mut opening = true;
+    ui::run(move || {
+        if std::mem::take(&mut opening) {
+            app.open_panel()?;
+            return Ok(false);
+        }
+        app.tick()
+    })
+}
+
+enum ActionState {
+    Idle,
+    Waiting {
+        target: crate::window::WindowIdentity,
+        hotkey_id: Option<i32>,
+        preset: String,
+        command: PresetCommand,
+        deadline: Instant,
+    },
+    Activating {
+        target: crate::window::WindowIdentity,
+        preset: String,
+        command: PresetCommand,
+        started: Instant,
+    },
+    Running,
+}
+
+struct AppController {
+    paths: AppPaths,
+    bindings: Vec<PresetHotkeyBinding>,
+    hotkeys: input::Hotkeys,
+    panel_hotkey: input::Hotkeys,
+    shortcut_bindings: ShortcutBindings,
+    scope: PresetScope,
+    worker: ActionWorker,
+    settings: PresetActionOptions,
+    state: ActionState,
+    exiting: bool,
+    ready_after: Instant,
+    prewarm_requested: bool,
+    panel_return_target: Option<crate::window::WindowIdentity>,
+    ui: ui::AppUi,
+    /// HellLocker: keep the panel up when focus moves to the game.
+    keep_open: bool,
+    /// HellLocker: the saved panel size (applied at start).
+    ui_scale: f64,
+    /// HellLocker: background art opacity, percent.
+    background_opacity: i64,
+    /// HellLocker: where status pop-ups show.
+    status_popup: crate::config::StatusPopup,
+    /// HellLocker: a sound when a preset is saved.
+    save_sound: bool,
+    /// HellLocker: the panel was hidden for an action and should come back afterwards.
+    reveal_after_action: bool,
+}
+
+impl AppController {
+    fn tick(&mut self) -> Result<bool> {
+        // Handle UI requests before shortcuts that use the updated settings.
+        self.poll_ui()?;
+        let game_active = game_window::is_game_foreground();
+        let panel_active = self.ui.is_panel_active();
+        let shortcuts_enabled = !self.exiting
+            && !matches!(
+                self.state,
+                ActionState::Activating { .. } | ActionState::Running
+            )
+            && !self.ui.shortcuts_blocked();
+        self.hotkeys
+            .set_enabled_where(|key| {
+                shortcuts_enabled
+                    && (game_active || panel_active)
+                    && (!panel_active || !ui::uses_shortcut(key))
+            })
+            .with_context(|| {
+                format!(
+                    "failed to update hotkeys configured in {}",
+                    self.paths.config.display()
+                )
+            })?;
+        self.panel_hotkey.set_enabled_where(|key| {
+            shortcuts_enabled && (!panel_active || !ui::uses_shortcut(key))
+        })?;
+        self.ui.set_shortcut_warning(
+            &self
+                .panel_hotkey
+                .unavailable()
+                .chain(self.hotkeys.unavailable())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        // Consume triggers before completion: keys pressed during the action cannot
+        // turn into a new action just because the worker finished in this iteration.
+        while let Some(id) = self.hotkeys.next_trigger() {
+            self.handle_preset_hotkey(id)?;
+        }
+        while self.panel_hotkey.next_trigger().is_some() {
+            if matches!(self.state, ActionState::Idle) {
+                if self.ui.is_panel_visible() {
+                    self.close_panel()?;
+                } else {
+                    self.open_panel()?;
+                }
+            }
+        }
+        // Preparation starts before opening a window that may take foreground.
+        let prewarm = shortcuts_enabled
+            && game_active
+            && self
+                .bindings
+                .iter()
+                .any(|binding| binding.hotkey.modifiers.is_down());
+        if prewarm != self.prewarm_requested {
+            self.prewarm_requested = prewarm;
+            if matches!(self.state, ActionState::Idle) {
+                self.worker.send(if prewarm {
+                    game_window::foreground_game_window()
+                        .ok()
+                        .map_or(Work::Discard, |target| Work::Prepare(target.identity()))
+                } else {
+                    Work::Discard
+                })?;
+            }
+        }
+        // Hide idle browsing whenever focus leaves the panel, including to the game,
+        // unless the panel is set to stay open (HellLocker).
+        // Waiting actions keep their separate focus/release handling below.
+        if !self.keep_open
+            && self.ui.is_panel_visible()
+            && !self.ui.is_panel_active()
+            && matches!(self.state, ActionState::Idle)
+        {
+            self.close_panel()?;
+        }
+        // HellLocker: remember where the panel was dragged.
+        if let Some(position) = self.ui.take_moved_position()
+            && let Err(error) = crate::config::save_panel_position(&self.paths.config, position)
+        {
+            warn!(error = %format!("{error:#}"), "failed to save panel position");
+        }
+        self.finish_pending_action()?;
+        self.ui.tick()?;
+        loop {
+            match self.worker.events.try_recv() {
+                Ok(WorkerEvent::Progress(event)) => {
+                    self.ui.event(event)?;
+                }
+                Ok(WorkerEvent::PreviewsLoaded(result)) => match result {
+                    Ok(previews) => self.ui.set_previews(previews),
+                    Err(error) => {
+                        warn!(path = %self.paths.presets.display(), %error, "could not load preset previews");
+                        self.ui.preview_failed(&error);
+                    }
+                },
+                Ok(WorkerEvent::Finished { saved }) => {
+                    self.hotkeys.discard_pending();
+                    self.panel_hotkey.discard_pending();
+                    self.state = ActionState::Idle;
+                    self.ui.set_pending(false);
+                    // HellLocker: bring a kept-open panel back, and refresh its previews.
+                    if std::mem::take(&mut self.reveal_after_action) && !self.exiting {
+                        let game = crate::game_window::foreground_game_window().ok();
+                        self.ui.reveal_panel()?;
+                        // Showing a window can take focus; hand it back to the game.
+                        if let Some(game) = game
+                            && !crate::game_window::is_game_foreground()
+                            && let Err(error) = game.identity().activate()
+                        {
+                            warn!(error = %format!("{error:#}"), "could not return focus to the game");
+                        }
+                    }
+                    if self.ui.is_panel_visible() {
+                        self.worker.send(Work::LoadPreviews)?;
+                    }
+                    self.ready_after = Instant::now() + ACTION_COOLDOWN;
+                    if saved && self.save_sound {
+                        platform::notify_preset_saved();
+                    }
+                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    anyhow::bail!("action worker stopped unexpectedly")
+                }
+            }
+        }
+        if self.exiting && !matches!(self.state, ActionState::Running) {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn handle_preset_hotkey(&mut self, id: i32) -> Result<()> {
+        if self.exiting
+            || self.ui.shortcuts_blocked()
+            || !matches!(self.state, ActionState::Idle)
+            || Instant::now() < self.ready_after
+        {
+            return Ok(());
+        }
+        let binding = self
+            .bindings
+            .iter()
+            .find(|binding| binding.hotkey.id == id)
+            .with_context(|| format!("unknown hotkey id: {id}"))?;
+        let preset = binding.preset.clone();
+        self.begin_action(preset, false, self.scope, Some(id))
+    }
+
+    fn request_exit(&mut self) -> Result<()> {
+        info!("exit requested");
+        self.exiting = true;
+        self.hotkeys.set_enabled(false)?;
+        self.panel_hotkey.set_enabled(false)?;
+        self.ui.hide_panel()?;
+        if matches!(
+            self.state,
+            ActionState::Waiting { .. } | ActionState::Activating { .. }
+        ) {
+            self.state = ActionState::Idle;
+            self.worker.send(Work::Discard)?;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for AppController {
+    fn drop(&mut self) {
+        // Release shortcuts before waiting for an in-flight action to finish.
+        let _ = self.hotkeys.set_enabled(false);
+        let _ = self.panel_hotkey.set_enabled(false);
+        self.worker.shutdown();
+    }
+}
+
+pub fn show_fatal_error(error: &anyhow::Error) {
+    let error = format!("{error:#}")
+        .replace("\r\n", "\n")
+        .replace('\n', "\r\n");
+    let log_hint = AppPaths::resolve().map(|paths| paths.log).map_or_else(
+        |_| String::new(),
+        |path| {
+            format!(
+                "\r\n\r\nSee {} for more information if the log was created.",
+                path.display()
+            )
+        },
+    );
+    let message = format!(
+        "HellLocker could not start or encountered a fatal error.\r\n\r\n{error}{log_hint}"
+    );
+    platform::show_error("HellLocker", &message);
+}
+
+fn show_preset_format_updated(backup_path: &Path) {
+    let message = format!(
+        "The preset format changed in this version.\r\n\r\nPresets created by an earlier version cannot be used and must be recreated in game.\r\n\r\nThe old preset file was backed up to:\r\n{}\r\n\r\nYour configuration was not changed.",
+        backup_path.display(),
+    );
+    platform::show_notice("HellLocker - Presets Updated", &message);
+}

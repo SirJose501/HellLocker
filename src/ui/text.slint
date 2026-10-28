@@ -1,0 +1,77 @@
+import { PreviewRole, PreviewRow, PreviewSection } from "models.slint";
+
+// Shared labels remain bindings, so changing the language updates every use.
+export global UiText {
+    public pure function preset-title(label: string, number: string) -> string {
+        return label != "" ? label : @tr("Preset {}", number);
+    }
+    public pure function section-message(section: PreviewSection) -> string {
+        return section.saved ? section.error : @tr("Not saved");
+    }
+    // HellLocker: the order matches crate::context::{Faction, Mission}::ALL.
+    public pure function faction-name(index: int) -> string {
+        if (index == 1) { return @tr("Terminids"); }
+        if (index == 2) { return @tr("Automatons"); }
+        if (index == 3) { return @tr("Illuminate"); }
+        return @tr("Any faction");
+    }
+    public pure function mission-name(index: int) -> string {
+        if (index == 1) { return @tr("Standard"); }
+        if (index == 2) { return @tr("Blitz"); }
+        if (index == 3) { return @tr("Eradicate"); }
+        if (index == 4) { return @tr("Defense"); }
+        return @tr("Any mission");
+    }
+    // HellLocker: the order matches crate::context::Subfaction::ALL.
+    public pure function subfaction-name(index: int) -> string {
+        if (index == 1) { return @tr("Predator Strain"); }
+        if (index == 2) { return @tr("Spore Burst Strain"); }
+        if (index == 3) { return @tr("Rupture Strain"); }
+        if (index == 4) { return @tr("Jet Brigade"); }
+        if (index == 5) { return @tr("Incineration Corps"); }
+        if (index == 6) { return @tr("Cyborg Legion"); }
+        if (index == 7) { return @tr("Mindless Masses"); }
+        if (index == 8) { return @tr("Appropriators"); }
+        if (index == 9) { return @tr("Vote Snatchers"); }
+        return @tr("Any sub-faction");
+    }
+    // The sub-faction box for a faction: `all` first, then its three sub-factions
+    // (first is Subfactions.first(faction)).
+    public pure function subfaction-model(first: int, all: string) -> [string] {
+        if (first == 0) { return [all]; }
+        return [all, UiText.subfaction-name(first), UiText.subfaction-name(first + 1), UiText.subfaction-name(first + 2)];
+    }
+    // A short tag for a preset row: "Terminids · Blitz", "Automatons", "Defense" or "General".
+    // HellLocker: the tag line with the sub-faction, when there is one.
+    public pure function full-tag-line(faction: int, subfaction: int, mission: int) -> string {
+        if (subfaction == 0) { return UiText.tag-line(faction, mission); }
+        if (mission == 0) { return UiText.subfaction-name(subfaction); }
+        return UiText.subfaction-name(subfaction) + " · " + UiText.mission-name(mission);
+    }
+    public pure function tag-line(faction: int, mission: int) -> string {
+        if (faction == 0 && mission == 0) { return @tr("General"); }
+        if (mission == 0) { return UiText.faction-name(faction); }
+        if (faction == 0) { return UiText.mission-name(mission); }
+        return UiText.faction-name(faction) + " · " + UiText.mission-name(mission);
+    }
+    // HellLocker: an equipment slot's name, by its index in EquipmentKind::ALL.
+    public pure function gear-label(slot: int) -> string {
+        if (slot == 0) { return @tr("Helmet"); }
+        if (slot == 1) { return @tr("Armor"); }
+        if (slot == 2) { return @tr("Cape"); }
+        if (slot == 3) { return @tr("Primary"); }
+        if (slot == 4) { return @tr("Secondary"); }
+        return @tr("Throwable");
+    }
+    public pure function item-label(item: PreviewRow) -> string {
+        if (item.role == PreviewRole.stratagem) { return @tr("Stratagem {}", item.number); }
+        if (item.role == PreviewRole.booster) { return @tr("Booster"); }
+        if (item.role == PreviewRole.fallback-booster) { return @tr("Fallback Booster"); }
+        if (item.role == PreviewRole.helmet) { return @tr("Helmet"); }
+        if (item.role == PreviewRole.armor) { return @tr("Armor"); }
+        if (item.role == PreviewRole.cape) { return @tr("Cape"); }
+        if (item.role == PreviewRole.primary) { return @tr("Primary"); }
+        if (item.role == PreviewRole.secondary) { return @tr("Secondary"); }
+        return @tr("Throwable");
+    }
+}

@@ -1,0 +1,14 @@
+{
+  "reference": {
+    "w": 1920,
+    "h": 1080
+  },
+  "roi_ref": {
+    "x": 48,
+    "y": 360,
+    "w": 432,
+    "h": 624
+  },
+  "scale_axis": "fit",
+  "anchor": "top_center"
+}

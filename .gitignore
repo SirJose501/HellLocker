@@ -1,0 +1,53 @@
+# Rust build output
+/target/
+
+# Runtime data
+/debug/
+/data/debug/
+/data/app.log
+/data/last_failure.zip.pending
+/data/diagnostics/
+/data/equipment-cache.json
+/data/wgc-f16/
+/data/presets.json
+/data/local_templates/
+
+# Local release packages
+/dist/
+/release/
+*.exe
+*.dll
+*.pdb
+*.msi
+*.msix
+*.zip
+*.7z
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editor files
+/.idea/
+/.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.bak
+*.dmp
+*.old
+*.orig
+*.tmp
+*~
+
+# Build output of Build-Windows.ps1
+/HellLocker/

@@ -1,0 +1,15 @@
+export component AppTray inherits SystemTrayIcon {
+    in property <image> tray-icon;
+    in property <string> version;
+    icon: tray-icon;
+    tooltip: "HellLocker " + root.version;
+    callback open-panel();
+    callback exit();
+    clicked => { root.open-panel(); }
+    Menu {
+        MenuItem {
+            title: @tr("Exit");
+            activated => { root.exit(); }
+        }
+    }
+}

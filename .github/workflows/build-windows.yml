@@ -1,0 +1,33 @@
+name: Build HellLocker (Windows)
+
+# Run by hand from the Actions tab; the result is a downloadable HellLocker zip.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test
+        shell: pwsh
+        run: cargo test --locked
+      - name: Build
+        shell: pwsh
+        run: cargo build --release --locked
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/HellLocker | Out-Null
+          Copy-Item target/release/HellLocker.exe dist/HellLocker/
+          Copy-Item LICENSE, README.md dist/HellLocker/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HellLocker-windows-x64
+          path: dist/HellLocker

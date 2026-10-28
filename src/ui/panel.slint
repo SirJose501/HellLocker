@@ -1,0 +1,1592 @@
+import { Theme } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { PanelButton, PanelComboBox, IconButton, DeletePresetDialog, NameImage, FailureNotice } from "controls.slint";
+import { SettingsDialog } from "settings.slint";
+import { ActionScope, PreviewRole, PreviewRow, PreviewSection, PresetRow, FolderRow, ShortcutRow, MonitorRole, MonitorChoice } from "models.slint";
+import { UiText } from "text.slint";
+import { Icons, TagIcon, FactionIcon, Subfactions } from "icons.slint";
+// HellLocker: the panel font (Liberation Sans Bold, SIL Open Font License).
+import "../../assets/LiberationSans-Bold.ttf";
+export { ActionScope, PreviewRole, PreviewRow, PreviewSection, PresetRow, FolderRow, MonitorRole, ShortcutRow, MonitorChoice }
+export { AppTray } from "tray.slint";
+export { ActionStatus, StatusItem, StatusTone } from "status.slint";
+export { Fonts } from "theme.slint";
+
+component SelectableSection inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <string> apply-label;
+    in property <bool> apply-enabled;
+    private property <bool> hovered: touch.has-hover && !apply-button.hovered;
+    callback toggled();
+    callback apply();
+    vertical-stretch: 0;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: keys.has-focus ? Theme.text-secondary : transparent;
+    forward-focus: keys;
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { keys.focus(); root.toggled(); }
+    }
+    // HellLocker 1.9.0: a header bar (yellow side stripe, box, title, apply) over a
+    // framed, darker body.
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 34px;
+            background: root.hovered && root.enabled ? #ffd21f1f : #ffd21f0f;
+            border-radius: 4px;
+            Rectangle {
+                x: 0px;
+                width: 4px;
+                height: parent.height;
+                border-radius: 2px;
+                background: root.checked && root.enabled ? Theme.button-outline : Theme.inactive;
+            }
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 4px;
+                spacing: 10px;
+                Rectangle {
+                    y: (parent.height - self.height) / 2;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: root.hovered && root.enabled ? Theme.accent
+                        : root.checked ? (root.enabled ? #bdb078 : #59605d) : Theme.inactive;
+                    background: root.checked ? (root.enabled ? Theme.accent-soft : #59605d) : transparent;
+                    if (root.checked): Path {
+                        width: parent.width;
+                        height: parent.height;
+                        viewbox-width: 18;
+                        viewbox-height: 18;
+                        commands: "M 4 9 L 7.5 12.5 L 14 5.5";
+                        fill: transparent;
+                        stroke: Theme.background;
+                        stroke-width: 2px;
+                    }
+                }
+                Text {
+                    text: root.text;
+                    color: !root.enabled ? Theme.text-disabled : root.checked ? Theme.button-outline : Theme.text-secondary;
+                    font-size: 15px;
+                    font-weight: 800;
+                    letter-spacing: 0.8px;
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                apply-button := IconButton {
+                    y: (parent.height - self.height) / 2;
+                    label: root.apply-label;
+                    outlined: true;
+                    enabled: root.enabled && root.apply-enabled;
+                    path: "M 7 4 L 20 12 L 7 20 Z";
+                    clicked => { root.apply(); }
+                }
+            }
+        }
+        Rectangle {
+            background: #00000073;
+            border-width: 1px;
+            border-color: #ffffff14;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+                @children
+            }
+        }
+    }
+    keys := FocusScope {
+        width: parent.width;
+        height: parent.height;
+        focus-on-click: false;
+        enabled: root.enabled;
+        accessible-role: checkbox;
+        accessible-label: root.text;
+        accessible-enabled: root.enabled;
+        accessible-checkable: true;
+        accessible-checked: root.checked;
+        accessible-action-default => { if (root.enabled) { root.toggled(); } }
+        key-pressed(event) => {
+            if (event.text == Key.Space) {
+                if (!event.repeat) { root.toggled(); }
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// HellLocker 1.9.0: the loadout's four Stratagem slots, numbered, then the Booster
+// (and a fallback Booster) set apart.
+component StratagemSlots inherits Rectangle {
+    in property <[PreviewRow]> items;
+    in property <length> slot-size: 54px;
+    HorizontalLayout {
+        alignment: start;
+        spacing: 10px;
+        for item[index] in root.items: HorizontalLayout {
+            spacing: 0px;
+            if (index == 4): Rectangle { width: 14px; }
+            VerticalLayout {
+                spacing: 4px;
+                Rectangle {
+                    width: root.slot-size;
+                    height: root.slot-size;
+                    background: #0b0b0ce6;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: item.role == PreviewRole.stratagem ? #ffd21f59 : #9fd3ff59;
+                    Image {
+                        x: 4px; y: 4px;
+                        width: parent.width - 8px;
+                        height: parent.height - 8px;
+                        source: item.picture;
+                        image-fit: contain;
+                    }
+                    Tooltip { text: @markdown("\{UiText.item-label(item)}"); }
+                }
+                Text {
+                    width: root.slot-size;
+                    text: item.role == PreviewRole.stratagem ? "\{item.number}" : UiText.item-label(item);
+                    color: Theme.text-secondary;
+                    font-size: 10px;
+                    height: 13px;
+                    horizontal-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
+// HellLocker 1.9.0: one equipment slot as a card -- its label (with a Helmet / Armor /
+// Cape box on the attire), the item's picture and its name.
+component GearCard inherits Rectangle {
+    in property <PreviewRow> item;
+    in property <bool> ready;
+    in property <string> label;
+    in property <bool> on: true;
+    in property <bool> dimmed;
+    in property <bool> checkable;
+    in property <bool> enabled: true;
+    callback toggled();
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    height: 104px;
+    background: #0b0b0cd9;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: root.on && !root.dimmed ? #ffd21f40 : #ffffff14;
+    VerticalLayout {
+        padding: 7px;
+        spacing: 4px;
+        HorizontalLayout {
+            height: 16px;
+            spacing: 6px;
+            Text {
+                text: root.label;
+                color: root.on && !root.dimmed ? Theme.accent-soft : Theme.inactive;
+                font-size: 10px;
+                letter-spacing: 0.6px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            if (root.checkable): Rectangle {
+                width: 15px;
+                height: 15px;
+                cross-axis-self-alignment: center;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: check-touch.has-hover && root.enabled ? Theme.accent
+                    : root.on ? (root.enabled ? #bdb078 : #59605d) : Theme.inactive;
+                background: root.on ? (root.enabled ? Theme.accent-soft : #59605d) : transparent;
+                if (root.on): Path {
+                    width: parent.width;
+                    height: parent.height;
+                    viewbox-width: 18;
+                    viewbox-height: 18;
+                    commands: "M 4 9 L 7.5 12.5 L 14 5.5";
+                    fill: transparent;
+                    stroke: Theme.background;
+                    stroke-width: 2px;
+                }
+                check-touch := TouchArea {
+                    enabled: root.enabled;
+                    mouse-cursor: pointer;
+                    clicked => { root.toggled(); }
+                }
+                accessible-role: checkbox;
+                accessible-label: root.label;
+                accessible-checkable: true;
+                accessible-checked: root.on;
+                accessible-enabled: root.enabled;
+                accessible-action-default => { if (root.enabled) { root.toggled(); } }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            opacity: root.on && !root.dimmed ? 1 : 0.4;
+            if (root.ready && root.item.has-icon): Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.item.icon;
+                image-fit: contain;
+            }
+            if (!root.ready || !root.item.has-icon): Text {
+                width: parent.width;
+                height: parent.height;
+                text: "—";
+                color: Theme.inactive;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        if (root.ready): NameImage {
+            source: root.item.picture;
+            height: 13px;
+            opacity: root.on && !root.dimmed ? 1 : 0.4;
+        }
+    }
+}
+
+// HellLocker: a folder header in the preset list -- open / close arrow, folder icon,
+// name (renamed in place), preset count, and rename / delete on hover.
+component FolderHeader inherits Rectangle {
+    in property <FolderRow> folder;
+    in property <bool> enabled: true;
+    in property <bool> renaming;
+    // A dragged preset is over this header.
+    in property <bool> hot;
+    callback toggle();
+    callback begin-rename();
+    callback rename(string);
+    callback cancel-rename();
+    callback delete();
+    private property <bool> show-tools: (touch.has-hover || rename-tool.hovered || delete-tool.hovered) && root.enabled && !root.renaming;
+    height: 34px;
+    border-radius: 5px;
+    background: root.hot ? #ffd21f2e : touch.has-hover ? #ffd21f1f : #ffd21f0f;
+    border-width: root.hot ? 2px : 0px;
+    border-color: Theme.button-outline;
+    accessible-role: button;
+    accessible-label: root.folder.name;
+    accessible-expandable: true;
+    accessible-expanded: root.folder.open;
+    accessible-action-default => { root.toggle(); }
+    touch := TouchArea {
+        enabled: root.enabled && !root.renaming;
+        mouse-cursor: pointer;
+        clicked => { root.toggle(); }
+        double-clicked => { root.begin-rename(); }
+    }
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 6px;
+        spacing: 8px;
+        Path {
+            width: 10px;
+            height: 10px;
+            cross-axis-self-alignment: center;
+            viewbox-width: 10;
+            viewbox-height: 10;
+            commands: root.folder.open ? "M 1 3 L 9 3 L 5 8 Z" : "M 3 1 L 8 5 L 3 9 Z";
+            fill: Theme.button-outline;
+        }
+        Path {
+            width: 22px;
+            height: 22px;
+            cross-axis-self-alignment: center;
+            viewbox-width: 24;
+            viewbox-height: 24;
+            commands: "M 2.5 6 L 2.5 19 L 21.5 19 L 21.5 8 L 11 8 L 9 5.5 L 3 5.5 Z";
+            fill: root.folder.open ? #ffd21f33 : transparent;
+            stroke: Theme.button-outline;
+            stroke-width: 1.6px;
+        }
+        if (!root.renaming): Text {
+            horizontal-stretch: 1;
+            text: root.folder.name;
+            color: Theme.button-outline;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if (root.renaming): Rectangle {
+            horizontal-stretch: 1;
+            height: 26px;
+            cross-axis-self-alignment: center;
+            background: #222627;
+            border-radius: 3px;
+            clip: true;
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.accent-soft; }
+            name-input := TextInput {
+                x: 6px;
+                width: parent.width - 12px;
+                height: parent.height;
+                text: root.folder.name;
+                single-line: true;
+                color: Theme.text;
+                font-size: 14px;
+                vertical-alignment: center;
+                selection-background-color: #786c38;
+                selection-foreground-color: #fff8d4;
+                accessible-label: @tr("Folder name");
+                init => { self.focus(); self.select-all(); }
+                accepted => { root.rename(self.text); }
+                changed has-focus => { if (!self.has-focus) { root.rename(self.text); } }
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) { root.cancel-rename(); return accept; }
+                    return reject;
+                }
+            }
+        }
+        if (!root.show-tools || root.renaming): Rectangle {
+            width: count-text.preferred-width + 16px;
+            height: 18px;
+            cross-axis-self-alignment: center;
+            border-radius: 9px;
+            background: #ffffff12;
+            count-text := Text {
+                text: root.folder.count;
+                color: Theme.text-secondary;
+                font-size: 11px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        // Kept in the layout (just hidden) so hovering them keeps them shown.
+        rename-tool := IconButton {
+            visible: root.show-tools;
+            width: root.show-tools ? 24px : 0px;
+            height: 24px;
+            cross-axis-self-alignment: center;
+            label: @tr("Rename folder");
+            path: "M 4 16 L 15 5 L 19 9 L 8 20 L 3 21 Z M 13 7 L 17 11";
+            clicked => { root.begin-rename(); }
+        }
+        delete-tool := IconButton {
+            visible: root.show-tools;
+            width: root.show-tools ? 24px : 0px;
+            height: 24px;
+            cross-axis-self-alignment: center;
+            label: @tr("Delete folder (its presets are kept)");
+            path: "M 4 6 L 20 6 M 9 6 L 9 3 L 15 3 L 15 6 M 6 6 L 7 21 L 17 21 L 18 6 M 10 10 L 10 17 M 14 10 L 14 17";
+            clicked => { root.delete(); }
+        }
+    }
+}
+
+component StratagemPreview inherits Rectangle {
+    in property <[PreviewRow]> items;
+    in property <length> icon-size: 40px;
+    in property <bool> compact;
+    min-height: icon-size;
+    HorizontalLayout {
+        y: (parent.height - self.height) / 2;
+        height: root.icon-size;
+        alignment: start;
+        spacing: root.compact ? 5px : 8px;
+        for item[index] in root.items: HorizontalLayout {
+            spacing: root.compact ? 5px : 12px;
+            if (index == 4 && !root.compact): Rectangle { width: 1px; background: Theme.border; }
+            if (!root.compact || index < 5): Image {
+                source: item.picture;
+                width: root.icon-size;
+                height: root.icon-size;
+                image-fit: contain;
+                Tooltip { text: @markdown("\{UiText.item-label(item)}"); }
+            }
+        }
+    }
+}
+
+export component PresetPanel inherits Window {
+    title: "HellLocker";
+    always-on-top: true;
+    no-frame: true;
+    resize-border-width: 0px;
+    out property <length> ideal-width: 1200px;
+    out property <length> ideal-height: 820px;
+    in property <length> available-width: ideal-width;
+    in property <length> available-height: ideal-height;
+    preferred-width: min(ideal-width, available-width);
+    min-width: self.preferred-width;
+    max-width: self.preferred-width;
+    preferred-height: min(ideal-height, available-height);
+    min-height: self.preferred-height;
+    max-height: self.preferred-height;
+    background: transparent;
+    in property <string> ui-font-family;
+    default-font-family: root.ui-font-family;
+    default-font-size: 14px;
+
+    in property <[PresetRow]> presets;
+    // HellLocker: shown next to the name in the header.
+    in property <string> version;
+    in property <string> status;
+    in-out property <string> failure-details;
+    in property <string> failure-label;
+    in property <string> failure-number;
+    in property <string> shortcut-warning;
+    in property <bool> pending;
+    in property <bool> loading: true;
+    in property <[string]> panel-shortcut-keys;
+    in-out property <bool> settings-open;
+    in-out property <bool> delete-open;
+    in property <[ShortcutRow]> shortcut-rows;
+    in property <[MonitorChoice]> monitor-choices;
+    private property <[string]> monitor-labels: root.project-monitor-labels(
+        root.monitor-choices, @tr("Follow game (automatic)"),
+        @tr("Saved display (unavailable)"), @tr("Display"), @tr("Primary display"));
+    in-out property <int> selected-monitor;
+    in-out property <int> selected-language;
+    in property <[string]> language-fonts;
+    in-out property <bool> draft-apply-in-saved-order;
+    in-out property <bool> draft-auto-ready-up;
+    in-out property <bool> draft-save-fallback-when-taken;
+    in-out property <bool> draft-keep-open;
+    in-out property <int> draft-ui-scale-index;
+    in-out property <float> draft-background-opacity: 85;
+    // HellLocker 1.9.3
+    in-out property <bool> draft-patient-mode;
+    in-out property <bool> draft-save-sound: true;
+    in-out property <bool> draft-start-with-windows;
+    in-out property <int> draft-status-popup;
+    in-out property <int> settings-tab;
+    in property <string> settings-notice;
+    // HellLocker: background art opacity (0.1 to 1); Settings previews its slider live.
+    in property <float> background-opacity: 0.85;
+    in-out property <int> recording-shortcut: -1;
+    in property <string> settings-error;
+    in property <bool> settings-saving;
+    in-out property <int> current-index: 0;
+    in property <bool> scope-stratagems: true;
+    in property <bool> scope-equipment: true;
+    // HellLocker: whether the helmet, armor and cape are each saved and applied.
+    in property <bool> scope-helmet: true;
+    in property <bool> scope-armor: true;
+    in property <bool> scope-cape: true;
+    // Indexed by equipment slot: helmet, armor, cape, primary, secondary, throwable.
+    private property <[bool]> slot-on: [scope-helmet, scope-armor, scope-cape, true, true, true];
+    // HellLocker: the list filter (indexes into UiText faction/mission names, 0 = all).
+    in-out property <int> view-faction: 0;
+    in-out property <int> view-mission: 0;
+    // HellLocker: the sub-faction filter (a Subfaction index, 0 = all of the faction).
+    in-out property <int> view-subfaction: 0;
+    changed view-subfaction => { root.sync-view(); }
+    changed view-faction => { root.sync-view(); }
+    private property <bool> include-stratagems: scope-stratagems && current.stratagems.saved;
+    private property <bool> include-equipment: scope-equipment && current.equipment.saved;
+    out property <bool> editing-name: editing-preset != "";
+    // HellLocker: the preset search box, and whether it has the keyboard (preset
+    // shortcuts pause while typing in it).
+    in-out property <string> search-text;
+    out property <bool> searching: search-input.has-focus;
+    out property <bool> save-available: root.action-available(true, ActionScope.selected);
+    out property <bool> available: root.action-available(false, ActionScope.selected);
+    private property <PresetRow> current: presets[current-index];
+    private property <int> hovered-index: -1;
+    private property <PresetRow> preview: presets[!editing-name && hovered-index >= 0 ? hovered-index : current-index];
+    private property <bool> interactive: !pending && !loading && !settings-open && !delete-open;
+    private property <string> editing-preset;
+    private property <string> name-draft;
+    private property <bool> apply-key-down;
+    private property <length> row-height: 40px;
+    private property <length> row-spacing: 3px;
+    changed current-index => { root.finish-rename(true); root.reveal-current(); root.sync-tags(); }
+    // The row under the mouse may be gone after a rebuild; go back to the selection.
+    changed presets => { root.hovered-index = -1; root.sync-tags(); }
+    // The tag boxes show the selected preset; a choice in them is sent, then the list is rebuilt.
+    // HellLocker: they follow the hovered preset like the rest of the preview, and go
+    // back to the selected one when the mouse leaves the list (choices always edit it).
+    changed hovered-index => { root.sync-tags(); }
+    function sync-tags() {
+        tag-faction.current-index = root.preview.faction;
+        tag-mission.current-index = root.preview.mission;
+        tag-subfaction.current-index = Subfactions.to-local(root.preview.faction, root.preview.subfaction);
+    }
+    // The sub-faction filter box shows the filter, relative to the faction shown.
+    function sync-view() {
+        view-sub.current-index = Subfactions.to-local(root.view-faction, root.view-subfaction);
+    }
+    function cycle-view(faction-step: int, mission-step: int) {
+        let f = root.view-faction + faction-step;
+        let m = root.view-mission + mission-step;
+        root.view-faction = f < 0 ? 3 : f > 3 ? 0 : f;
+        root.view-mission = m < 0 ? 4 : m > 4 ? 0 : m;
+        if (faction-step != 0) { root.view-subfaction = 0; }
+        root.request-view(root.view-faction, root.view-subfaction, root.view-mission);
+    }
+    callback request-action(bool, ActionScope);
+    callback request-scope(bool, bool);
+    callback request-rename(string, string);
+    callback request-delete(string);
+    callback edit-settings();
+    callback save-settings();
+    callback clear-shortcut(int);
+    // HellLocker 1.9.3: Settings > Shortcuts > Reset, and the Help tab's buttons.
+    callback reset-shortcuts();
+    callback help-action(string);
+    callback add-preset();
+    callback dismiss();
+    // HellLocker: a new list filter, and new tags for one preset.
+    callback request-view(int, int, int);
+    callback request-tags(string, int, int, int);
+    callback request-attire(bool, bool, bool);
+    // HellLocker: Scan equipment.
+    callback request-scan();
+    callback request-search(string);
+    // HellLocker: folders in the preset list, and dragging presets between them.
+    in property <[FolderRow]> folders;
+    in property <length> list-height;
+    in-out property <string> renaming-folder;
+    callback request-new-folder();
+    callback request-rename-folder(string, string);
+    callback request-delete-folder(string);
+    callback request-open-folder(string, bool);
+    callback request-move(string, length);
+    private property <int> drag-index: -1;
+    private property <bool> dragging;
+    private property <length> drag-y;
+    private property <length> drag-from;
+    function end-drag() {
+        if (root.dragging && root.drag-index >= 0 && root.drag-index < root.presets.length) {
+            root.request-move(root.presets[root.drag-index].name, root.drag-y);
+        }
+        root.dragging = false;
+        root.drag-index = -1;
+    }
+    pure callback project-monitor-labels([MonitorChoice], string, string, string, string) -> [string];
+    public function focus-list() {
+        root.hovered-index = -1;
+        if (!root.settings-open && !root.delete-open) { keyboard.focus(); }
+    }
+    public function focus-settings() { root.hovered-index = -1; settings.focus-dialog(); }
+    public function close-dialogs() {
+        if (root.settings-open) { settings.focus(); }
+        if (root.delete-open) { delete-dialog.focus(); }
+        root.settings-open = false;
+        root.delete-open = false;
+        root.recording-shortcut = -1;
+        root.focus-list();
+    }
+    function begin-delete() {
+        if (!root.interactive || root.presets.length == 0) { return; }
+        root.finish-rename(true);
+        root.hovered-index = -1;
+        root.apply-key-down = false;
+        keyboard.focus();
+        root.delete-open = true;
+        delete-dialog.focus-dialog();
+    }
+    function begin-rename() {
+        if (!root.interactive || root.presets.length == 0 || root.editing-name) { return; }
+        root.hovered-index = -1;
+        root.apply-key-down = false;
+        root.name-draft = root.current.label;
+        root.editing-preset = root.current.name;
+        name-input.scroll-offset = 0px;
+        name-input.focus();
+        name-input.select-all();
+    }
+    public function finish-rename(save: bool) {
+        if (!root.editing-name) { return; }
+        let preset = root.editing-preset;
+        root.editing-preset = "";
+        if (save) { root.request-rename(preset, root.name-draft); }
+    }
+    function reveal-current() {
+        let top = root.current.top;
+        if (top + preset-list.content-y < 0px) {
+            preset-list.content-y = -top;
+        } else if (top + root.row-height + preset-list.content-y > preset-list.visible-height) {
+            preset-list.content-y = preset-list.visible-height - top - root.row-height;
+        }
+    }
+    public pure function action-available(saving: bool, scope: ActionScope) -> bool {
+        let stratagems = scope == ActionScope.stratagems || (scope == ActionScope.selected && root.scope-stratagems);
+        let equipment = scope == ActionScope.equipment || (scope == ActionScope.selected && root.scope-equipment);
+        if (!root.interactive || root.presets.length == 0 || (!stratagems && !equipment)) { return false; }
+        if (saving) { return true; }
+        let include-stratagems = stratagems && root.current.stratagems.saved;
+        let include-equipment = equipment && root.current.equipment.saved;
+        return (include-stratagems || include-equipment)
+            && (!include-stratagems || root.current.stratagems.ready)
+            && (!include-equipment || root.current.equipment.ready);
+    }
+    function apply-current(scope: ActionScope) {
+        if (root.action-available(false, scope)) {
+            root.finish-rename(true);
+            root.request-action(false, scope);
+        }
+    }
+    function save-current() {
+        if (root.save-available) {
+            root.finish-rename(true);
+            root.request-action(true, ActionScope.selected);
+        }
+    }
+
+    // HellLocker: the framed background, very slightly see-through.
+    Rectangle {
+        border-radius: 8px;
+        clip: true;
+        opacity: root.settings-open ? root.draft-background-opacity / 100 : root.background-opacity;
+        Rectangle { background: #0b0b0b; }
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: @image-url("../../assets/background.png");
+            image-fit: fill;
+        }
+    }
+    keyboard := FocusScope {
+        enabled: !root.settings-open && !root.delete-open;
+        key-pressed(event) => {
+            if (root.editing-name) { return reject; }
+            if (event.text == Key.Escape) { root.dismiss(); return accept; }
+            if (!root.interactive) { return reject; }
+            if (event.modifiers.control && !event.modifiers.shift && !event.modifiers.alt && !event.modifiers.meta
+                && (event.text == "s" || event.text == "S")) {
+                if (!event.repeat) { root.save-current(); }
+                return accept;
+            }
+            if (event.modifiers.control || event.modifiers.shift || event.modifiers.alt || event.modifiers.meta) { return reject; }
+            let up = event.text == Key.UpArrow || event.text == "w" || event.text == "W";
+            let down = event.text == Key.DownArrow || event.text == "s" || event.text == "S";
+            if (up || down) {
+                root.hovered-index = -1;
+                root.current-index = clamp(root.current-index + (down ? 1 : -1), 0, max(0, root.presets.length - 1));
+                return accept;
+            }
+            if (event.text == Key.Return) { root.apply-key-down = true; return accept; }
+            let left = event.text == Key.LeftArrow || event.text == "a" || event.text == "A";
+            let right = event.text == Key.RightArrow || event.text == "d" || event.text == "D";
+            if (left || right) { root.cycle-view(right ? 1 : -1, 0); return accept; }
+            let previous = event.text == "q" || event.text == "Q";
+            let next = event.text == "e" || event.text == "E";
+            if (previous || next) { root.cycle-view(0, next ? 1 : -1); return accept; }
+            return reject;
+        }
+        key-released(event) => {
+            if (event.text == Key.Return) {
+                // Editing may end on key-down; its key-up must not apply a preset.
+                let apply = root.apply-key-down;
+                root.apply-key-down = false;
+                if (apply && !root.editing-name && root.interactive) {
+                    root.apply-current(ActionScope.selected);
+                }
+                return accept;
+            }
+            return reject;
+        }
+        VerticalLayout {
+            // HellLocker: clear of the frame art on every side.
+            padding-left: 46px;
+            padding-right: 46px;
+            padding-top: 34px;
+            padding-bottom: 46px;
+            spacing: 12px;
+            HorizontalLayout {
+                height: 48px;
+                spacing: 12px;
+                WindowMoveArea {
+                    horizontal-stretch: 1;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        Image {
+                            width: 48px;
+                            height: 48px;
+                            source: @image-url("../../assets/logo.png");
+                            image-fit: contain;
+                        }
+                        Image {
+                            width: self.height * 841 / 160;
+                            height: 30px;
+                            cross-axis-self-alignment: center;
+                            source: @image-url("../../assets/wordmark.png");
+                            image-fit: contain;
+                        }
+                        Text {
+                            text: "v" + root.version;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                        }
+                        // HellLocker 1.9.0: the global show / hide shortcut, beside the version.
+                        if (root.panel-shortcut-keys.length > 0): HorizontalLayout {
+                            height: 22px;
+                            cross-axis-self-alignment: center;
+                            padding-left: 8px;
+                            spacing: 4px;
+                            for key in root.panel-shortcut-keys: Rectangle {
+                                width: panel-key.preferred-width + 12px;
+                                height: 22px;
+                                cross-axis-self-alignment: center;
+                                border-radius: 3px;
+                                border-width: 1px;
+                                border-color: Theme.inactive;
+                                background: Theme.control;
+                                panel-key := Text {
+                                    text: key;
+                                    color: Theme.text;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            Text {
+                                text: @tr("Show / hide");
+                                color: Theme.text-secondary;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                                property <string> hint: @tr("Global shortcut: shows or hides the panel from anywhere, also in game. Change it in Settings.");
+                                Tooltip { text: @markdown("\{parent.hint}"); }
+                            }
+                        }
+                    }
+                }
+                // HellLocker 1.9.0: the main actions at the top, each with its key below.
+                VerticalLayout {
+                    spacing: 2px;
+                    PanelButton {
+                        text: @tr("Scan equipment");
+                        filled: true;
+                        enabled: root.interactive;
+                        height: 30px;
+                        property <string> hint: @tr("Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates.");
+                        Tooltip { text: @markdown("\{parent.hint}"); }
+                        clicked => { root.finish-rename(true); root.request-scan(); }
+                    }
+                    Text { text: ""; font-size: 9px; height: 12px; }
+                }
+                VerticalLayout {
+                    spacing: 2px;
+                    width: max(130px, save-button.preferred-width);
+                    save-button := PanelButton {
+                        height: 30px;
+                        text: root.scope-stratagems ? (root.scope-equipment ? @tr("Save preset") : @tr("Save Stratagems"))
+                            : root.scope-equipment ? @tr("Save equipment") : @tr("Select content");
+                        filled: true;
+                        enabled: root.save-available;
+                        property <string> hint: @tr("Fill all four Stratagem slots before saving.");
+                        if (root.scope-stratagems): Tooltip { text: @markdown("\{parent.hint}"); }
+                        clicked => { root.save-current(); }
+                    }
+                    Text {
+                        text: "Ctrl+S";
+                        color: root.save-available ? Theme.text-secondary : Theme.inactive;
+                        font-size: 9px;
+                        height: 12px;
+                        horizontal-alignment: center;
+                    }
+                }
+                VerticalLayout {
+                    spacing: 2px;
+                    width: max(130px, apply-button.preferred-width);
+                    apply-button := PanelButton {
+                        height: 30px;
+                        text: root.include-stratagems ? (root.include-equipment ? @tr("Apply all") : @tr("Apply Stratagems"))
+                            : root.include-equipment ? @tr("Apply equipment") : @tr("Select content");
+                        accent: true;
+                        enabled: root.available;
+                        clicked => { root.apply-current(ActionScope.selected); }
+                    }
+                    Text {
+                        text: "Enter";
+                        color: root.available ? Theme.text-secondary : Theme.inactive;
+                        font-size: 9px;
+                        height: 12px;
+                        horizontal-alignment: center;
+                    }
+                }
+                VerticalLayout {
+                    width: 28px;
+                    spacing: 0px;
+                    PanelButton {
+                        height: 20px;
+                        text: "—";
+                        accessible-label: @tr("Hide panel");
+                        Tooltip { text: @markdown("\{parent.accessible-label}"); }
+                        clicked => { root.dismiss(); }
+                    }
+                    Text { text: "Esc"; color: Theme.text-secondary; font-size: 9px; height: 12px; horizontal-alignment: center; }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.border; }
+            HorizontalLayout {
+                min-height: 0px;
+                vertical-stretch: 1;
+                spacing: 18px;
+                VerticalLayout {
+                    width: 460px;
+                    spacing: 8px;
+                    // HellLocker 1.8.0: faction and sub-faction filters side by side, then the
+                    // mission filter beside the search box.
+                    HorizontalLayout {
+                    spacing: 8px;
+                    PanelComboBox {
+                        min-width: 0px;
+                        enabled: root.interactive;
+                        model: [@tr("All factions"), UiText.faction-name(1), UiText.faction-name(2), UiText.faction-name(3)];
+                        icons: [Icons.faction(0), Icons.faction(1), Icons.faction(2), Icons.faction(3)];
+                        faction-icons: true;
+                        current-index <=> root.view-faction;
+                        selected(index) => {
+                            root.view-subfaction = 0;
+                            root.request-view(root.view-faction, 0, root.view-mission);
+                            keyboard.focus();
+                        }
+                    }
+                    view-sub := PanelComboBox {
+                        min-width: 0px;
+                        enabled: root.interactive && root.view-faction != 0;
+                        model: UiText.subfaction-model(Subfactions.first(root.view-faction),
+                            root.view-faction == 0 ? @tr("Pick a faction first") : @tr("All sub-factions"));
+                        icons: [Icons.faction(0), "", "", ""];
+                        images: Subfactions.images(root.view-faction);
+                        selected(index) => {
+                            root.view-subfaction = Subfactions.to-global(root.view-faction, index);
+                            root.request-view(root.view-faction, root.view-subfaction, root.view-mission);
+                            keyboard.focus();
+                        }
+                    }
+                    }
+                    HorizontalLayout {
+                    spacing: 8px;
+                    PanelComboBox {
+                        width: (460px - 8px) / 2;
+                        enabled: root.interactive;
+                        model: [@tr("All missions"), UiText.mission-name(1), UiText.mission-name(2), UiText.mission-name(3), UiText.mission-name(4)];
+                        icons: [Icons.mission(0), Icons.mission(1), Icons.mission(2), Icons.mission(3), Icons.mission(4)];
+                        current-index <=> root.view-mission;
+                        selected(index) => { root.request-view(root.view-faction, root.view-subfaction, root.view-mission); keyboard.focus(); }
+                    }
+                    // HellLocker: search presets by name.
+                    Rectangle {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        height: 32px;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: search-input.has-focus ? Theme.button-outline : Theme.border;
+                        background: Theme.control;
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 6px;
+                            spacing: 8px;
+                            Path {
+                                width: 14px;
+                                height: 14px;
+                                y: (parent.height - self.height) / 2;
+                                viewbox-width: 24;
+                                viewbox-height: 24;
+                                commands: "M 16.5 10 A 6.5 6.5 0 1 1 3.5 10 A 6.5 6.5 0 1 1 16.5 10 Z M 15 15 L 21 21";
+                                fill: transparent;
+                                stroke: Theme.text-secondary;
+                                stroke-width: 2px;
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                clip: true;
+                                if (root.search-text == "" && !search-input.has-focus): Text {
+                                    text: @tr("Search presets");
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                    width: parent.width;
+                                    height: parent.height;
+                                }
+                                search-input := TextInput {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    single-line: true;
+                                    enabled: !root.pending && !root.settings-open && !root.delete-open;
+                                    text <=> root.search-text;
+                                    color: Theme.text;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                    selection-background-color: #786c38;
+                                    selection-foreground-color: #fff8d4;
+                                    accessible-label: @tr("Search presets");
+                                    edited => { root.request-search(self.text); }
+                                    accepted => { keyboard.focus(); }
+                                    key-pressed(event) => {
+                                        if (event.text == Key.Escape) {
+                                            if (root.search-text != "") {
+                                                root.search-text = "";
+                                                root.request-search("");
+                                            } else {
+                                                keyboard.focus();
+                                            }
+                                            return accept;
+                                        }
+                                        // Up and Down still move through the list while searching.
+                                        if (event.text == Key.UpArrow || event.text == Key.DownArrow) {
+                                            root.hovered-index = -1;
+                                            root.current-index = clamp(root.current-index + (event.text == Key.DownArrow ? 1 : -1), 0, max(0, root.presets.length - 1));
+                                            return accept;
+                                        }
+                                        return reject;
+                                    }
+                                }
+                            }
+                            if (root.search-text != ""): IconButton {
+                                width: 22px;
+                                height: 22px;
+                                y: (parent.height - self.height) / 2;
+                                label: @tr("Clear search");
+                                path: "M 6 6 L 18 18 M 18 6 L 6 18";
+                                clicked => { root.search-text = ""; root.request-search(""); keyboard.focus(); }
+                            }
+                        }
+                    }
+                    }
+                    // HellLocker 1.9.0: + New preset and + New folder under the filters.
+                    HorizontalLayout {
+                        height: 30px;
+                        spacing: 8px;
+                        PanelButton {
+                            horizontal-stretch: 1;
+                            text: @tr("+ New preset");
+                            filled: true;
+                            enabled: root.interactive;
+                            clicked => { root.finish-rename(true); root.add-preset(); }
+                        }
+                        PanelButton {
+                            width: 132px;
+                            text: @tr("+ New folder");
+                            filled: true;
+                            enabled: root.interactive;
+                            clicked => { root.finish-rename(true); root.request-new-folder(); }
+                        }
+                    }
+                    preset-list := ScrollView {
+                        min-height: 0px;
+                        width: 460px;
+                        content-width: self.visible-width - 8px;
+                        // HellLocker 1.9.1: the rows are placed by position, so give the
+                        // scroll area the list's real height.
+                        content-height: list-area.height;
+                        changed visible-height => { root.reveal-current(); }
+                        changed content-height => { root.reveal-current(); }
+                        // HellLocker 1.9.1: folder headers and preset rows, placed where the
+                        // app puts them (folder contents indented).
+                        list-area := Rectangle {
+                            height: max(root.list-height + 6px, preset-list.visible-height);
+                            min-height: self.height;
+                            for folder in root.folders: FolderHeader {
+                                y: folder.top;
+                                height: 34px;
+                                folder: folder;
+                                enabled: root.interactive && !root.dragging;
+                                renaming: root.renaming-folder == folder.id;
+                                hot: root.dragging && root.drag-y >= folder.top && root.drag-y < folder.top + 37px;
+                                toggle => { root.finish-rename(true); root.request-open-folder(folder.id, !folder.open); keyboard.focus(); }
+                                begin-rename => { root.finish-rename(true); root.renaming-folder = folder.id; }
+                                rename(name) => {
+                                    if (root.renaming-folder == folder.id) {
+                                        root.renaming-folder = "";
+                                        root.request-rename-folder(folder.id, name);
+                                        keyboard.focus();
+                                    }
+                                }
+                                cancel-rename => { root.renaming-folder = ""; root.request-rename-folder(folder.id, folder.name); keyboard.focus(); }
+                                delete => { root.request-delete-folder(folder.id); keyboard.focus(); }
+                            }
+                            for preset[index] in root.presets: Rectangle {
+                                y: preset.top;
+                                x: preset.in-folder ? 18px : 0px;
+                                width: parent.width - self.x;
+                                height: root.row-height;
+                                opacity: root.dragging && index == root.drag-index ? 0.3 : 1;
+                                background: index == root.current-index ? #302e22 : touch.has-hover ? #2d3032 : transparent;
+                                border-width: 1px;
+                                border-color: index == root.current-index ? Theme.accent : transparent;
+                                border-radius: 5px;
+                                accessible-role: button;
+                                accessible-label: UiText.preset-title(preset.label, preset.number);
+                                accessible-description: UiText.section-message(preset.stratagems) + " " + UiText.section-message(preset.equipment);
+                                accessible-enabled: root.interactive;
+                                accessible-action-default => { root.current-index = index; }
+                                touch := TouchArea {
+                                    enabled: root.interactive;
+                                    changed has-hover => {
+                                        if (self.has-hover) { root.hovered-index = index; }
+                                        else if (root.hovered-index == index) { root.hovered-index = -1; }
+                                    }
+                                    pointer-event(event) => {
+                                        if (event.kind == PointerEventKind.move) { root.hovered-index = index; }
+                                    }
+                                    clicked => { root.current-index = index; keyboard.focus(); }
+                                    double-clicked => { root.apply-current(ActionScope.selected); }
+                                }
+                                    // HellLocker 1.8.0: one slim horizontal row per preset -- faction and mission
+                                    // emblems, the name, then the Stratagems and Booster.
+                                    HorizontalLayout {
+                                        padding-left: 2px;
+                                        padding-right: 8px;
+                                        spacing: 6px;
+                                        // HellLocker 1.9.1: the drag handle.
+                                        Rectangle {
+                                            width: 14px;
+                                            Path {
+                                                width: 8px;
+                                                height: 14px;
+                                                viewbox-width: 10;
+                                                viewbox-height: 16;
+                                                commands: "M 2 2 h 2 v 2 h -2 Z M 6 2 h 2 v 2 h -2 Z M 2 7 h 2 v 2 h -2 Z M 6 7 h 2 v 2 h -2 Z M 2 12 h 2 v 2 h -2 Z M 6 12 h 2 v 2 h -2 Z";
+                                                fill: grip.has-hover || (root.dragging && index == root.drag-index) ? Theme.button-outline : Theme.inactive;
+                                            }
+                                            grip := TouchArea {
+                                                enabled: root.interactive;
+                                                mouse-cursor: root.dragging ? MouseCursor.grabbing : MouseCursor.grab;
+                                                pointer-event(event) => {
+                                                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                                                        root.finish-rename(true);
+                                                        root.drag-index = index;
+                                                        root.dragging = false;
+                                                        root.drag-from = preset.top + self.mouse-y;
+                                                        root.drag-y = root.drag-from;
+                                                    } else if (event.kind == PointerEventKind.up && root.drag-index == index) {
+                                                        if (!root.dragging) { root.current-index = index; keyboard.focus(); }
+                                                        root.end-drag();
+                                                    }
+                                                }
+                                                moved => {
+                                                    if (root.drag-index == index) {
+                                                        root.drag-y = preset.top + self.mouse-y;
+                                                        if (!root.dragging && abs(root.drag-y - root.drag-from) > 4px) {
+                                                            root.dragging = true;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        // The sub-faction's emblem when it has one, else the faction's.
+                                        Rectangle {
+                                            width: 30px;
+                                            height: 30px;
+                                            cross-axis-self-alignment: center;
+                                            if (preset.subfaction == 0): FactionIcon {
+                                                width: parent.width;
+                                                height: parent.height;
+                                                faction: preset.faction;
+                                            }
+                                            if (preset.subfaction != 0): Image {
+                                                width: parent.width;
+                                                height: parent.height;
+                                                source: Subfactions.image(preset.subfaction);
+                                                image-fit: contain;
+                                            }
+                                            Tooltip { text: @markdown("\{UiText.full-tag-line(preset.faction, preset.subfaction, preset.mission)}"); }
+                                        }
+                                        TagIcon {
+                                            width: 24px;
+                                            height: 24px;
+                                            cross-axis-self-alignment: center;
+                                            icon: Icons.mission(preset.mission);
+                                            color: preset.mission != 0 ? Theme.accent : Theme.text-secondary;
+                                        }
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            min-width: 0px;
+                                            alignment: center;
+                                            spacing: 1px;
+                                            Text {
+                                                text: UiText.preset-title(preset.label, preset.number);
+                                                color: Theme.text;
+                                                font-size: 14px;
+                                                font-weight: 700;
+                                                overflow: elide;
+                                            }
+                                            if (preset.shortcut != ""): Text {
+                                                text: preset.shortcut;
+                                                color: Theme.text-secondary;
+                                                font-size: 10px;
+                                                overflow: elide;
+                                            }
+                                        }
+                                        if (preset.stratagems.ready): StratagemPreview {
+                                            width: 5 * 32px + 4 * 5px;
+                                            height: 32px;
+                                            cross-axis-self-alignment: center;
+                                            icon-size: 32px;
+                                            compact: true;
+                                            items: preset.stratagems.items;
+                                            opacity: root.scope-stratagems ? 1 : 0.65;
+                                        }
+                                        if (!preset.stratagems.ready): Text {
+                                            width: 5 * 32px + 4 * 5px;
+                                            text: preset.stratagems.saved || preset.equipment.saved ? @tr("Preview unavailable") : @tr("Not saved");
+                                            color: Theme.text-secondary;
+                                            font-size: 11px;
+                                            horizontal-alignment: right;
+                                            vertical-alignment: center;
+                                            overflow: elide;
+                                        }
+                                    }
+                                // HellLocker 1.9.1: where a dragged preset would land.
+                                if (root.dragging && index != root.drag-index && root.drag-y >= preset.top && root.drag-y < preset.top + root.row-height / 2): Rectangle {
+                                    y: -2px; height: 2px; background: Theme.button-outline;
+                                }
+                                if (root.dragging && index != root.drag-index && root.drag-y >= preset.top + root.row-height / 2 && root.drag-y < preset.top + root.row-height + root.row-spacing): Rectangle {
+                                    y: parent.height; height: 2px; background: Theme.button-outline;
+                                }
+                            }
+                            if (root.dragging && root.drag-y >= root.list-height): Rectangle {
+                                y: root.list-height - 1px; height: 2px; background: Theme.button-outline;
+                            }
+                            // The dragged preset follows the mouse.
+                            if (root.dragging && root.drag-index >= 0 && root.drag-index < root.presets.length): Rectangle {
+                                x: 18px;
+                                y: root.drag-y - root.row-height / 2;
+                                width: parent.width - 24px;
+                                height: root.row-height;
+                                background: #1d2122f2;
+                                border-radius: 5px;
+                                border-width: 1px;
+                                border-color: Theme.button-outline;
+                                drop-shadow-blur: 14px;
+                                drop-shadow-color: #000000cc;
+                                drop-shadow-offset-y: 6px;
+                                HorizontalLayout {
+                                    padding-left: 12px;
+                                    padding-right: 10px;
+                                    spacing: 10px;
+                                    FactionIcon {
+                                        width: 26px;
+                                        height: 26px;
+                                        cross-axis-self-alignment: center;
+                                        faction: root.presets[root.drag-index].faction;
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: UiText.preset-title(root.presets[root.drag-index].label, root.presets[root.drag-index].number);
+                                        color: Theme.text;
+                                        font-size: 14px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                }
+                            }
+                        }
+                        // Scroll while a dragged preset is held near the top or bottom.
+                        Timer {
+                            interval: 30ms;
+                            running: root.dragging;
+                            triggered => {
+                                let at = root.drag-y + preset-list.content-y;
+                                let step = at < 36px ? -10px : at > preset-list.visible-height - 36px ? 10px : 0px;
+                                let limit = min(0px, preset-list.visible-height - list-area.height);
+                                let next = clamp(preset-list.content-y - step, limit, 0px);
+                                root.drag-y += preset-list.content-y - next;
+                                preset-list.content-y = next;
+                            }
+                        }
+                    }
+                    Text {
+                        height: 16px;
+                        text: @tr("↑↓ / W S  ·  A / D faction  ·  Q / E mission");
+                        color: Theme.text-secondary;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        property <string> hint: @tr("Keys while the panel has focus: select a preset, change the faction filter, change the mission filter");
+                        Tooltip { text: @markdown("\{parent.hint}"); }
+                    }
+                }
+                Rectangle { width: 1px; background: Theme.border; }
+                ScrollView {
+                    min-width: 0px;
+                    min-height: 0px;
+                    horizontal-stretch: 1;
+                    content-width: max(360px, self.visible-width - 8px);
+                    VerticalLayout {
+                        padding-top: 6px;
+                        spacing: 12px;
+                        alignment: start;
+                        // HellLocker 1.9.0: the preset's header card -- emblem, name, tag line.
+                        Rectangle {
+                            height: root.presets.length > 0 ? 78px : 44px;
+                            background: #0a0a0ab8;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: #ffd21f33;
+                            Rectangle { x: 0px; width: 3px; height: parent.height; background: Theme.button-outline; }
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                padding-right: 12px;
+                                padding-top: 8px;
+                                padding-bottom: 8px;
+                                spacing: 12px;
+                                if (root.presets.length > 0): Rectangle {
+                                    width: 56px;
+                                    height: 56px;
+                                    cross-axis-self-alignment: center;
+                                    background: #00000066;
+                                    border-radius: 4px;
+                                    if (root.preview.subfaction == 0): FactionIcon {
+                                        x: 6px; y: 6px;
+                                        width: parent.width - 12px;
+                                        height: parent.height - 12px;
+                                        faction: root.preview.faction;
+                                    }
+                                    if (root.preview.subfaction != 0): Image {
+                                        x: 5px; y: 5px;
+                                        width: parent.width - 10px;
+                                        height: parent.height - 10px;
+                                        source: Subfactions.image(root.preview.subfaction);
+                                        image-fit: contain;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 2px;
+                                    HorizontalLayout {
+                                        height: 32px;
+                                        Rectangle {
+                                            horizontal-stretch: 1;
+                                            Rectangle {
+                                                x: -6px;
+                                                width: parent.width + 12px;
+                                                height: parent.height;
+                                                border-radius: 3px;
+                                                background: root.editing-name ? #222627 : transparent;
+                                                animate background { duration: 120ms; easing: ease-out; }
+                                            }
+                                            Rectangle {
+                                                x: -6px;
+                                                y: parent.height - 1px;
+                                                width: parent.width + 12px;
+                                                height: 1px;
+                                                background: root.editing-name ? Theme.accent-soft : transparent;
+                                                animate background { duration: 120ms; easing: ease-out; }
+                                            }
+                                            name-title := Text {
+                                                x: 0px;
+                                                width: min(self.preferred-width, parent.width - 72px);
+                                                height: parent.height;
+                                                visible: !root.editing-name || (root.name-draft == "" && name-input.preedit-text == "");
+                                                text: root.presets.length > 0 ? UiText.preset-title(root.preview.label, root.preview.number) : @tr("No presets");
+                                                color: root.editing-name ? Theme.text-disabled : Theme.text;
+                                                font-size: 21px;
+                                                overflow: elide;
+                                                vertical-alignment: center;
+                                            }
+                                            Rectangle {
+                                                x: 0px;
+                                                visible: root.editing-name;
+                                                width: parent.width;
+                                                height: parent.height;
+                                                clip: true;
+                                                ContextMenuArea {
+                                                    Menu {
+                                                        MenuItem { title: @tr("Cut"); activated => { name-input.cut(); } }
+                                                        MenuItem { title: @tr("Copy"); activated => { name-input.copy(); } }
+                                                        MenuItem { title: @tr("Paste"); activated => { name-input.paste(); } }
+                                                        MenuItem { title: @tr("Select all"); activated => { name-input.select-all(); } }
+                                                    }
+                                                    name-input := TextInput {
+                                                        property <length> scroll-offset;
+                                                        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.scroll-offset));
+                                                        width: max(parent.width, self.preferred-width);
+                                                        height: parent.height;
+                                                        enabled: root.interactive;
+                                                        single-line: true;
+                                                        text <=> root.name-draft;
+                                                        color: Theme.text;
+                                                        font-size: name-title.font-size;
+                                                        vertical-alignment: center;
+                                                        selection-background-color: #786c38;
+                                                        selection-foreground-color: #fff8d4;
+                                                        accessible-label: @tr("Preset name");
+                                                        cursor-position-changed(position) => {
+                                                            if (position.x + self.x < 0px) {
+                                                                self.scroll-offset = -position.x;
+                                                            } else if (position.x + self.x > parent.width - self.text-cursor-width) {
+                                                                self.scroll-offset = parent.width - self.text-cursor-width - position.x;
+                                                            }
+                                                        }
+                                                        accepted => { root.finish-rename(true); keyboard.focus(); }
+                                                        changed has-focus => { if (!self.has-focus) { root.finish-rename(true); } }
+                                                        key-pressed(event) => {
+                                                            if (event.text == Key.Escape) {
+                                                                root.finish-rename(false);
+                                                                keyboard.focus();
+                                                                return accept;
+                                                            }
+                                                            return reject;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            IconButton {
+                                                x: name-title.width + 8px;
+                                                y: (parent.height - self.height) / 2;
+                                                visible: !root.editing-name && root.presets.length > 0;
+                                                enabled: root.interactive;
+                                                label: @tr("Rename preset");
+                                                path: "M 4 16 L 15 5 L 19 9 L 8 20 L 3 21 Z M 13 7 L 17 11";
+                                                clicked => { root.begin-rename(); }
+                                            }
+                                            IconButton {
+                                                x: name-title.width + 40px;
+                                                y: (parent.height - self.height) / 2;
+                                                visible: !root.editing-name && root.presets.length > 0;
+                                                enabled: root.interactive;
+                                                label: @tr("Delete preset");
+                                                path: "M 4 6 L 20 6 M 9 6 L 9 3 L 15 3 L 15 6 M 6 6 L 7 21 L 17 21 L 18 6 M 10 10 L 10 17 M 14 10 L 14 17";
+                                                clicked => { root.begin-delete(); }
+                                            }
+                                        }
+                                    }
+                                    if (root.presets.length > 0): Text {
+                                        text: UiText.full-tag-line(root.preview.faction, root.preview.subfaction, root.preview.mission);
+                                        color: root.preview.faction != 0 ? Icons.faction-color(root.preview.faction)
+                                            : root.preview.mission != 0 ? Theme.accent : Theme.text-secondary;
+                                        font-size: 12px;
+                                        letter-spacing: 0.5px;
+                                        overflow: elide;
+                                    }
+                                }
+                            }
+                        }
+                        // HellLocker 1.9.0: what the preset is for, each box with its own label.
+                        HorizontalLayout {
+                            visible: root.presets.length > 0;
+                            height: root.presets.length > 0 ? 50px : 0px;
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 4px;
+                                horizontal-stretch: 1;
+                                Text { text: @tr("Faction"); color: Theme.text-secondary; font-size: 10px; height: 14px; letter-spacing: 0.5px; }
+                                tag-faction := PanelComboBox {
+                                    min-width: 0px;
+                                    enabled: root.interactive && root.presets.length > 0;
+                                    model: [UiText.faction-name(0), UiText.faction-name(1), UiText.faction-name(2), UiText.faction-name(3)];
+                                    icons: [Icons.faction(0), Icons.faction(1), Icons.faction(2), Icons.faction(3)];
+                                    faction-icons: true;
+                                    selected(index) => { root.request-tags(root.current.name, index, 0, root.current.mission); keyboard.focus(); }
+                                }
+                            }
+                            VerticalLayout {
+                                spacing: 4px;
+                                horizontal-stretch: 1;
+                                Text { text: @tr("Sub-faction"); color: Theme.text-secondary; font-size: 10px; height: 14px; letter-spacing: 0.5px; }
+                                tag-subfaction := PanelComboBox {
+                                    min-width: 0px;
+                                    enabled: root.interactive && root.presets.length > 0 && root.current.faction != 0;
+                                    model: UiText.subfaction-model(Subfactions.first(root.preview.faction), UiText.subfaction-name(0));
+                                    icons: [Icons.faction(0), "", "", ""];
+                                    images: Subfactions.images(root.preview.faction);
+                                    selected(index) => {
+                                        root.request-tags(root.current.name, root.current.faction,
+                                            Subfactions.to-global(root.current.faction, index), root.current.mission);
+                                        keyboard.focus();
+                                    }
+                                }
+                            }
+                            VerticalLayout {
+                                spacing: 4px;
+                                horizontal-stretch: 1;
+                                Text { text: @tr("Mission"); color: Theme.text-secondary; font-size: 10px; height: 14px; letter-spacing: 0.5px; }
+                                tag-mission := PanelComboBox {
+                                    min-width: 0px;
+                                    enabled: root.interactive && root.presets.length > 0;
+                                    model: [UiText.mission-name(0), UiText.mission-name(1), UiText.mission-name(2), UiText.mission-name(3), UiText.mission-name(4)];
+                                    icons: [Icons.mission(0), Icons.mission(1), Icons.mission(2), Icons.mission(3), Icons.mission(4)];
+                                    selected(index) => { root.request-tags(root.current.name, root.current.faction, root.current.subfaction, index); keyboard.focus(); }
+                                }
+                            }
+                        }
+                        SelectableSection {
+                            text: @tr("Equipment");
+                            checked: root.scope-equipment;
+                            enabled: root.interactive;
+                            apply-label: @tr("Apply equipment");
+                            apply-enabled: root.action-available(false, ActionScope.equipment);
+                            apply => { root.apply-current(ActionScope.equipment); }
+                            toggled => {
+                                root.finish-rename(true);
+                                root.request-scope(root.scope-stratagems, !root.scope-equipment);
+                            }
+                            // HellLocker 1.9.0: six gear cards -- weapons and grenade, then the attire, whose
+                            // cards carry the Helmet / Armor / Cape boxes.
+                            VerticalLayout {
+                                spacing: 8px;
+                                for row in 2: HorizontalLayout {
+                                    spacing: 8px;
+                                    for column in 3: GearCard {
+                                        property <int> slot: (row == 0 ? 3 : 0) + column;
+                                        item: root.preview.equipment.items[self.slot];
+                                        ready: root.preview.equipment.ready;
+                                        label: UiText.gear-label(self.slot);
+                                        on: root.slot-on[self.slot];
+                                        dimmed: !root.scope-equipment;
+                                        checkable: row == 1;
+                                        enabled: root.interactive && root.scope-equipment;
+                                        toggled => {
+                                            root.finish-rename(true);
+                                            root.request-attire(
+                                                self.slot == 0 ? !root.scope-helmet : root.scope-helmet,
+                                                self.slot == 1 ? !root.scope-armor : root.scope-armor,
+                                                self.slot == 2 ? !root.scope-cape : root.scope-cape);
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: !root.preview.equipment.ready ? UiText.section-message(root.preview.equipment)
+                                        : root.scope-helmet && root.scope-armor && root.scope-cape ? ""
+                                        : @tr("Unticked: left as they are when saving and applying");
+                                    color: Theme.text-secondary;
+                                    font-size: 10px;
+                                    height: 14px;
+                                }
+                            }
+                        }
+                        SelectableSection {
+                            text: @tr("Stratagems & Booster");
+                            checked: root.scope-stratagems;
+                            enabled: root.interactive;
+                            apply-label: @tr("Apply Stratagems");
+                            apply-enabled: root.action-available(false, ActionScope.stratagems);
+                            apply => { root.apply-current(ActionScope.stratagems); }
+                            toggled => {
+                                root.finish-rename(true);
+                                root.request-scope(!root.scope-stratagems, root.scope-equipment);
+                            }
+                            Rectangle {
+                                height: 76px;
+                                if (root.preview.stratagems.ready): StratagemSlots {
+                                    items: root.preview.stratagems.items;
+                                    opacity: root.scope-stratagems ? 1 : 0.55;
+                                }
+                                if (!root.preview.stratagems.ready): Text {
+                                    text: root.presets.length > 0 ? UiText.section-message(root.preview.stratagems)
+                                        : root.search-text != "" ? @tr("No presets match the search.")
+                                        : root.view-faction != 0 || root.view-mission != 0 ? @tr("No presets for this filter yet. Use + New preset to make one.")
+                                        : @tr("Use + New preset to get started.");
+                                    color: Theme.text-secondary;
+                                    wrap: word-wrap;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.border; }
+            // HellLocker 1.9.0: status on the left, Settings at the bottom right.
+            HorizontalLayout {
+                spacing: 12px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 8px;
+                    if (!root.loading && root.failure-details != "" && root.status == ""): FailureNotice {
+                        details: UiText.preset-title(root.failure-label, root.failure-number) + " — " + root.failure-details;
+                        dismissed => { root.failure-details = ""; }
+                    }
+                    if (root.loading || root.failure-details == "" || root.status != ""): Text {
+                        text: root.loading ? @tr("Loading previews…") : root.status != "" ? root.status
+                            : root.scope-stratagems || root.scope-equipment ? @tr("Start from either loadout page.")
+                            : @tr("Select sections to save or apply.");
+                        color: Theme.text-secondary;
+                        wrap: word-wrap;
+                        font-size: 12px;
+                    }
+                    if (root.shortcut-warning != ""): Text {
+                        text: @tr("Some shortcuts are unavailable. Change them in Settings > Shortcuts.");
+                        color: Theme.warning;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                        Tooltip { text: @markdown("\{root.shortcut-warning}"); }
+                    }
+                }
+                PanelButton {
+                    width: 130px;
+                    height: 32px;
+                    cross-axis-self-alignment: center;
+                    text: @tr("Settings");
+                    filled: true;
+                    enabled: root.interactive;
+                    clicked => { root.finish-rename(true); root.edit-settings(); }
+                }
+            }
+        }
+    }
+    if (root.settings-open): Rectangle {
+        background: #00000099;
+        border-radius: 8px;
+        TouchArea { }
+    }
+    settings := SettingsDialog {
+        visible: root.settings-open;
+        enabled: root.settings-open;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(620px, parent.width - 32px);
+        height: min(680px, parent.height - 32px);
+        version: root.version;
+        rows: root.shortcut-rows;
+        monitor-labels: root.monitor-labels;
+        selected-monitor <=> root.selected-monitor;
+        selected-language <=> root.selected-language;
+        language-fonts: root.language-fonts;
+        apply-in-saved-order <=> root.draft-apply-in-saved-order;
+        auto-ready-up <=> root.draft-auto-ready-up;
+        save-fallback-when-taken <=> root.draft-save-fallback-when-taken;
+        keep-open <=> root.draft-keep-open;
+        ui-scale-index <=> root.draft-ui-scale-index;
+        background-opacity <=> root.draft-background-opacity;
+        patient-mode <=> root.draft-patient-mode;
+        save-sound <=> root.draft-save-sound;
+        start-with-windows <=> root.draft-start-with-windows;
+        status-popup <=> root.draft-status-popup;
+        tab <=> root.settings-tab;
+        notice: root.settings-notice;
+        recording <=> root.recording-shortcut;
+        error: root.settings-error;
+        shortcut-warning: root.shortcut-warning;
+        saving: root.settings-saving;
+        clear(index) => { root.clear-shortcut(index); }
+        reset-shortcuts => { root.reset-shortcuts(); }
+        help(action) => { root.help-action(action); }
+        save => { root.save-settings(); }
+        cancel => { root.close-dialogs(); }
+    }
+    if (root.delete-open): Rectangle {
+        background: #00000099;
+        border-radius: 8px;
+        TouchArea { }
+    }
+    delete-dialog := DeletePresetDialog {
+        visible: root.delete-open;
+        enabled: root.delete-open;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(420px, parent.width - 32px);
+        height: 220px;
+        preset-title: UiText.preset-title(root.current.label, root.current.number);
+        confirm => {
+            root.request-delete(root.current.name);
+            root.close-dialogs();
+        }
+        cancel => { root.close-dialogs(); }
+    }
+}

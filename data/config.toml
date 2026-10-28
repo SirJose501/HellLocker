@@ -1,0 +1,112 @@
+# Restart the application after manually editing this file.
+
+[ui]
+# Toggle the panel from the game or desktop. Set to "" to use the tray only.
+panel_shortcut = "Ctrl + Alt + Enter"
+
+# "auto" follows the game, or uses the primary display when the game is not in front.
+# To use a fixed display, select it in Settings > Panel.
+monitor = "auto"
+
+# "auto" follows the system language. Select a fixed language in Settings > Panel.
+language = "auto"
+
+# HellLocker: the faction and mission filter the panel opens with (remembered automatically).
+# Factions: "any", "terminids", "automatons", "illuminate".
+# Sub-factions ("any" = the whole faction; only one of the chosen faction applies):
+#   Terminids: "predator_strain", "spore_burst_strain", "rupture_strain"
+#   Automatons: "jet_brigade", "incineration_corps", "cyborg_legion"
+#   Illuminate: "mindless_masses", "appropriators", "vote_snatchers"
+# Missions: "any", "standard", "blitz", "eradicate", "defense".
+view_faction = "any"
+view_subfaction = "any"
+view_mission = "any"
+
+# HellLocker: keep the panel up when you click into the game (hide it with the shortcut).
+keep_open = true
+
+# HellLocker: panel size as a multiple of the Windows display scale: 1.0, 1.25, 1.5,
+# 1.75 or 2.0. Takes effect when HellLocker restarts.
+ui_scale = 1.5
+
+# HellLocker: how solid the background art is, in percent: 10 (very see-through)
+# to 100 (solid). Settings > Panel has a slider for it.
+background_opacity = 85
+
+# HellLocker: where the small status pop-ups (preset saved, applied, errors) show:
+# "top_right", "top_left" or "off".
+status_popup = "top_right"
+
+# HellLocker: play a short sound when a preset is saved.
+save_sound = true
+
+# HellLocker: where you last dragged the panel, in desktop pixels. Empty = top right
+# of the game's display.
+panel_position = []
+
+[presets]
+# Shared scope for saving and applying, remembered by the panel.
+# Unchecked sections stay unchanged. Applying skips unsaved sections.
+scope = { stratagems = true, equipment = true }
+
+# HellLocker: also save and apply the helmet, armor and cape (the panel's Helmet,
+# Armor and Cape boxes). Off: that slot is left as it is when saving and applying;
+# weapons and the grenade are always covered.
+helmet = true
+armor = true
+cape = true
+
+# HellLocker: the preset list's folders and order, kept by the panel (drag presets
+# into folders there). Each folder: { id, name, open, presets = ["preset_N", ...] }.
+# `order` lists the presets in no folder; presets not listed anywhere go last.
+folders = []
+order = []
+
+# Apply Stratagems in saved order when all four slots start empty.
+apply_in_saved_order = false
+
+# Press B after applying a preset with a booster.
+auto_ready_up = false
+
+# If a saved Booster is already in use, save a manually selected one as its fallback.
+save_fallback_when_taken = false
+
+# HellLocker: Patient mode. Waits up to three times longer for the game to respond,
+# for PCs where menus are slow to open or the game hitches. Off is quicker.
+patient_mode = false
+
+# Each table below defines one preset slot. Use + New preset in the panel to add more.
+# To keep no slots, leave an empty [presets.slots] table; omitting it uses six defaults.
+# Keep preset_N IDs stable: they link to saved content, not the display name.
+# HellLocker: faction and mission say which list a preset appears in; "any" (or omitted)
+# means general purpose, shown under every filter. Set them from the panel.
+# Empty labels use the default name; empty or omitted shortcuts mean unassigned.
+# Shortcuts apply the selected sections while Helldivers or the panel is in front.
+# Panel navigation keys and Ctrl+S take priority in the panel; actions pause shortcuts.
+# Single keys are supported: "1" is the top row, "Num1" is the numeric keypad.
+# Other examples: "Home", "Ctrl + PageUp", "Shift + Equal", "NumAdd", "F13".
+# Esc is reserved for cancel/close; modifier-only shortcuts are not supported.
+# Keep Num Lock on for numpad digits; avoid combining them with Shift.
+[presets.slots.preset_1]
+label = "" # e.g. "Terminids 1"
+shortcut = "Ctrl + Shift + F7"
+
+[presets.slots.preset_2]
+label = ""
+shortcut = "Ctrl + Shift + F8"
+
+[presets.slots.preset_3]
+label = ""
+shortcut = "Ctrl + Shift + F9"
+
+[presets.slots.preset_4]
+label = ""
+shortcut = "Ctrl + Shift + F10"
+
+[presets.slots.preset_5]
+label = ""
+shortcut = "Ctrl + Shift + F11"
+
+[presets.slots.preset_6]
+label = ""
+shortcut = "Ctrl + Shift + F12"

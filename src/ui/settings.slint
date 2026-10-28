@@ -1,0 +1,737 @@
+// HellLocker 1.9.3: the Settings window. Striped black like the panel's buttons, with a
+// yellow frame and corner brackets, four tabs (Gameplay, Panel, Shortcuts, Help), and
+// each setting on its own card with an icon, a title and a line saying what it does.
+import { Theme, Fonts } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { PanelButton, PanelComboBox } from "controls.slint";
+import { ShortcutEditor } from "shortcuts.slint";
+import { ShortcutRow } from "models.slint";
+
+// Line icons on a 24 x 24 grid, drawn for HellLocker.
+export global SettingIcons {
+    out property <string> gear: "M 12 8.5 A 3.5 3.5 0 1 1 12 15.5 A 3.5 3.5 0 1 1 12 8.5 Z M 10.3 2.5 L 13.7 2.5 L 14.3 5.2 L 16.4 6.4 L 19 5.5 L 20.7 8.5 L 18.7 10.3 L 18.7 13.7 L 20.7 15.5 L 19 18.5 L 16.4 17.6 L 14.3 18.8 L 13.7 21.5 L 10.3 21.5 L 9.7 18.8 L 7.6 17.6 L 5 18.5 L 3.3 15.5 L 5.3 13.7 L 5.3 10.3 L 3.3 8.5 L 5 5.5 L 7.6 6.4 L 9.7 5.2 Z";
+    out property <string> order: "M 4 6 L 14 6 M 4 11 L 14 11 M 4 16 L 10 16 M 18 5 L 18 19 M 15 16 L 18 19 L 21 16";
+    out property <string> ready: "M 5 12.5 L 10 17.5 L 19 7";
+    out property <string> patient: "M 12 3.5 A 8.5 8.5 0 1 1 12 20.5 A 8.5 8.5 0 1 1 12 3.5 Z M 12 7 L 12 12 L 15.5 14";
+    out property <string> shield: "M 12 3 L 19 5.8 L 19 11 C 19 15.6 16 19.2 12 21 C 8 19.2 5 15.6 5 11 L 5 5.8 Z M 9 12 L 11 14 L 15 10";
+    out property <string> sound: "M 4 9.5 L 8 9.5 L 12.5 5.5 L 12.5 18.5 L 8 14.5 L 4 14.5 Z M 15.5 9 C 17 10.5 17 13.5 15.5 15 M 18 6.5 C 21 9.5 21 14.5 18 17.5";
+    out property <string> pin: "M 9 3.5 L 15 3.5 M 10 3.5 L 10 10 L 7 13.5 L 17 13.5 L 14 10 L 14 3.5 M 12 13.5 L 12 20.5";
+    out property <string> power: "M 12 3 L 12 11.5 M 7.2 6.3 A 7.5 7.5 0 1 0 16.8 6.3";
+    out property <string> monitor: "M 3.5 5 L 20.5 5 L 20.5 16 L 3.5 16 Z M 9 20 L 15 20 M 12 16 L 12 20";
+    out property <string> popup: "M 3.5 5 L 20.5 5 L 20.5 19 L 3.5 19 Z M 12.5 7.5 L 18 7.5 L 18 11 L 12.5 11 Z";
+    out property <string> size: "M 4 9 L 4 4 L 9 4 M 15 4 L 20 4 L 20 9 M 20 15 L 20 20 L 15 20 M 9 20 L 4 20 L 4 15";
+    out property <string> picture: "M 3.5 5 L 20.5 5 L 20.5 19 L 3.5 19 Z M 3.5 16 L 9 11 L 13 15 L 15.5 12.5 L 20.5 17 M 15.5 8 A 1.3 1.3 0 1 1 15.5 10.6 A 1.3 1.3 0 1 1 15.5 8 Z";
+    out property <string> globe: "M 21 12 A 9 9 0 1 1 3 12 A 9 9 0 1 1 21 12 Z M 3 12 L 21 12 M 12 3 C 8.5 6 8.5 18 12 21 M 12 3 C 15.5 6 15.5 18 12 21";
+    out property <string> bug: "M 8 9 C 8 6.5 9.8 5 12 5 C 14.2 5 16 6.5 16 9 L 16 14 C 16 17 14.2 19.5 12 19.5 C 9.8 19.5 8 17 8 14 Z M 12 9 L 12 19.5 M 8 11 L 4 10 M 8 14.5 L 4 15.5 M 16 11 L 20 10 M 16 14.5 L 20 15.5 M 9.5 5.8 L 8 3.5 M 14.5 5.8 L 16 3.5";
+    out property <string> folder: "M 3.5 6 L 9.5 6 L 11.5 8 L 20.5 8 L 20.5 18.5 L 3.5 18.5 Z";
+    out property <string> info: "M 5 4 L 19 4 L 19 20 L 5 20 Z M 8.5 8.5 L 15.5 8.5 M 8.5 12 L 15.5 12 M 8.5 15.5 L 13 15.5";
+    out property <string> save: "M 12 4 L 12 14.5 M 7.5 10 L 12 14.5 L 16.5 10 M 4.5 16 L 4.5 19.5 L 19.5 19.5 L 19.5 16";
+    out property <string> restore: "M 12 15 L 12 4.5 M 7.5 9 L 12 4.5 L 16.5 9 M 4.5 16 L 4.5 19.5 L 19.5 19.5 L 19.5 16";
+    out property <string> keyboard: "M 3 7 L 21 7 L 21 17 L 3 17 Z M 6 10 L 7 10 M 9 10 L 10 10 M 12 10 L 13 10 M 15 10 L 16 10 M 18 10 L 18.5 10 M 7 14 L 17 14";
+    out property <string> reset: "M 5 12 A 7 7 0 1 0 7.2 6.9 M 7.2 3.2 L 7.2 7.2 L 3.2 7.2";
+}
+
+component LineIcon inherits Path {
+    in property <string> icon;
+    in property <color> color: Theme.button-outline;
+    commands: root.icon;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    fill: transparent;
+    stroke: root.color;
+    stroke-width: 1.6px;
+}
+
+// The striped black face used across HellLocker, under the content.
+component Stripes inherits Rectangle {
+    clip: true;
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: @image-url("../../assets/button-stripes.png");
+        horizontal-tiling: repeat;
+        vertical-tiling: repeat;
+    }
+}
+
+// An on / off switch: grey and to the left when off, yellow and to the right when on.
+component Switch inherits Rectangle {
+    in property <bool> on;
+    in property <bool> enabled: true;
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: root.on ? Theme.button-outline : #5a605c;
+    background: !root.enabled ? #2a2d2d : root.on ? Theme.button-outline : #2b2f2f;
+    Rectangle {
+        x: root.on ? parent.width - self.width - 4px : 4px;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: root.on ? #111111 : #8b918d;
+        animate x { duration: 120ms; easing: ease-out; }
+    }
+}
+
+// The section heading over a group of cards.
+component SectionTitle inherits Text {
+    font-family: Fonts.settings;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    color: Theme.accent-soft;
+    height: 26px;
+    vertical-alignment: bottom;
+}
+
+// A setting's card: yellow edge, icon box, title and description, then the control.
+component SettingCard inherits Rectangle {
+    in property <string> icon;
+    in property <string> title;
+    in property <string> description;
+    // A control's width on the right (0 = none, e.g. for switches use the switch slot).
+    in property <length> control-width: 0px;
+    in property <bool> hovered: touch.has-hover;
+    min-height: 62px;
+    vertical-stretch: 0;
+    border-radius: 3px;
+    background: root.hovered ? #ffffff0d : #00000073;
+    border-width: 1px;
+    border-color: #ffffff12;
+    touch := TouchArea { }
+    Rectangle { x: 0px; width: 3px; height: parent.height; background: Theme.button-outline; }
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+        spacing: 12px;
+        Rectangle {
+            width: 34px;
+            height: 34px;
+            cross-axis-self-alignment: center;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: #ffd21f8c;
+            background: #0b0b0c;
+            LineIcon { x: 7px; y: 7px; width: 20px; height: 20px; icon: root.icon; }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            Text { font-family: Fonts.settings; text: root.title; color: Theme.text; font-size: 14px; font-weight: 600; wrap: word-wrap; }
+            if (root.description != ""): Text { font-family: Fonts.settings; text: root.description; color: Theme.text-secondary; font-size: 11.5px; wrap: word-wrap; }
+        }
+        // The control. (Children declared by a card's user see the card as `parent`,
+        // so this layout centres them rather than they placing themselves.)
+        VerticalLayout {
+            width: root.control-width;
+            alignment: center;
+            @children
+        }
+    }
+}
+
+// A card with a switch; clicking anywhere on it flips the setting.
+component ToggleCard inherits Rectangle {
+    in property <string> icon;
+    in property <string> title;
+    in property <string> description;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    min-height: 62px;
+    vertical-stretch: 0;
+    accessible-role: checkbox;
+    accessible-label: root.title;
+    accessible-description: root.description;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { if (root.enabled) { root.checked = !root.checked; } }
+    forward-focus: keys;
+    SettingCard {
+        width: parent.width;
+        height: parent.height;
+        icon: root.icon;
+        title: root.title;
+        description: root.description;
+        control-width: 48px;
+        hovered: touch.has-hover && root.enabled;
+        border-color: keys.has-focus ? Theme.accent-soft : #ffffff12;
+    }
+    Switch { x: parent.width - self.width - 16px; y: (parent.height - self.height) / 2; on: root.checked; enabled: root.enabled; }
+    keys := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                if (!event.repeat) { root.checked = !root.checked; }
+                return accept;
+            }
+            return reject;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { keys.focus(); root.checked = !root.checked; }
+    }
+}
+
+// A row of joined buttons, one chosen (Panel size, Status pop-up).
+component Segments inherits Rectangle {
+    in property <[string]> options;
+    in property <bool> enabled: true;
+    in-out property <int> current;
+    height: 30px;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: #ffd21f8c;
+    clip: true;
+    Stripes { width: parent.width; height: parent.height; }
+    HorizontalLayout {
+        for option[index] in root.options: Rectangle {
+            horizontal-stretch: 1;
+            background: index == root.current ? Theme.button-outline : segment-touch.has-hover && root.enabled ? #ffffff14 : transparent;
+            if (index > 0): Rectangle { x: 0px; width: 1px; height: parent.height; background: #ffd21f59; }
+            Text {
+                font-family: Fonts.settings;
+                text: option;
+                font-size: 12px;
+                font-weight: 700;
+                color: index == root.current ? #111111 : root.enabled ? Theme.text : Theme.text-disabled;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            accessible-role: button;
+            accessible-label: option;
+            accessible-checkable: true;
+            accessible-checked: index == root.current;
+            segment-touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: pointer;
+                clicked => { root.current = index; }
+            }
+        }
+    }
+}
+
+// The background slider: a yellow track and handle, 10 to 100 % in steps of 5.
+component OpacitySlider inherits Rectangle {
+    in property <bool> enabled: true;
+    in-out property <float> value;
+    private property <float> fraction: (root.value - 10) / 90;
+    height: 24px;
+    Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        height: 6px;
+        border-radius: 3px;
+        background: #3a3e3c;
+    }
+    Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: (parent.width - 20px) * root.fraction + 10px;
+        height: 6px;
+        border-radius: 3px;
+        background: root.enabled ? Theme.button-outline : Theme.inactive;
+    }
+    Rectangle {
+        x: (parent.width - 20px) * root.fraction;
+        y: (parent.height - self.height) / 2;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        border-width: 3px;
+        border-color: #111111;
+        background: root.enabled ? Theme.button-outline : Theme.inactive;
+    }
+    function set-from(x: length) {
+        let raw = 10 + 90 * clamp((x - 10px) / (root.width - 20px), 0, 1);
+        root.value = Math.round(raw / 5) * 5;
+    }
+    accessible-role: slider;
+    accessible-value: Math.round(root.value) + "%";
+    accessible-value-minimum: 10;
+    accessible-value-maximum: 100;
+    accessible-value-step: 5;
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                root.set-from(self.mouse-x);
+            }
+        }
+        moved => { if (self.pressed) { root.set-from(self.mouse-x); } }
+    }
+}
+
+// A striped outline button with an icon, for the Help tab and Reset.
+component ActionButton inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 30px;
+    min-width: label.preferred-width + (root.icon != "" ? 46px : 24px);
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: root.enabled ? #ffd21fb3 : #ffd21f40;
+    clip: true;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if (root.enabled) { root.clicked(); } }
+    Stripes { width: parent.width; height: parent.height; }
+    Rectangle { background: !root.enabled ? #00000080 : touch.has-hover ? #ffd21f1f : transparent; }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 7px;
+        if (root.icon != ""): LineIcon { width: 15px; height: 15px; cross-axis-self-alignment: center; icon: root.icon; color: root.enabled ? Theme.button-outline : Theme.inactive; }
+        label := Text {
+            font-family: Fonts.settings;
+            text: root.text;
+            font-size: 12px;
+            font-weight: 700;
+            color: root.enabled ? Theme.button-outline : Theme.inactive;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A tab along the top: filled yellow when chosen.
+component Tab inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> chosen;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 36px;
+    horizontal-stretch: 1;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: root.chosen ? Theme.button-outline : #ffd21f73;
+    clip: true;
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-item-selected: root.chosen;
+    accessible-action-default => { root.clicked(); }
+    if (!root.chosen): Stripes { width: parent.width; height: parent.height; }
+    Rectangle { background: root.chosen ? Theme.button-outline : touch.has-hover && root.enabled ? #ffd21f17 : transparent; }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        LineIcon { width: 16px; height: 16px; cross-axis-self-alignment: center; icon: root.icon; color: root.chosen ? #111111 : Theme.button-outline; }
+        Text {
+            text: root.text;
+            font-size: 13px;
+            color: root.chosen ? #111111 : Theme.accent-soft;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A yellow corner bracket of the frame.
+component Bracket inherits Path {
+    in property <bool> right;
+    in property <bool> bottom;
+    width: 20px;
+    height: 20px;
+    viewbox-width: 20;
+    viewbox-height: 20;
+    fill: transparent;
+    stroke: Theme.button-outline;
+    stroke-width: 3px;
+    commands: root.right
+        ? (root.bottom ? "M 1.5 18.5 L 18.5 18.5 L 18.5 1.5" : "M 1.5 1.5 L 18.5 1.5 L 18.5 18.5")
+        : (root.bottom ? "M 18.5 18.5 L 1.5 18.5 L 1.5 1.5" : "M 18.5 1.5 L 1.5 1.5 L 1.5 18.5");
+}
+
+export component SettingsDialog inherits Rectangle {
+    in property <bool> enabled;
+    in property <string> version;
+    in property <[ShortcutRow]> rows;
+    in property <[string]> monitor-labels;
+    in-out property <int> selected-monitor;
+    in-out property <int> selected-language;
+    in property <[string]> language-fonts;
+    in-out property <bool> apply-in-saved-order;
+    in-out property <bool> auto-ready-up;
+    in-out property <bool> save-fallback-when-taken;
+    in-out property <bool> patient-mode;
+    in-out property <bool> save-sound: true;
+    in-out property <bool> keep-open;
+    in-out property <bool> start-with-windows;
+    in-out property <int> status-popup;
+    in-out property <int> ui-scale-index;
+    in-out property <float> background-opacity: 85;
+    in-out property <int> recording: -1;
+    in property <string> error;
+    in property <string> notice;
+    in property <string> shortcut-warning;
+    in property <bool> saving;
+    // 0 Gameplay, 1 Panel, 2 Shortcuts, 3 Help.
+    in-out property <int> tab: 0;
+    callback clear(int);
+    callback reset-shortcuts();
+    // "report-bug", "open-folder", "copy-info", "backup" or "restore".
+    callback help(string);
+    callback save();
+    callback cancel();
+    forward-focus: keys;
+    public function focus-dialog() {
+        if (root.shortcut-warning != "") { root.tab = 2; }
+        keys.focus();
+    }
+    private property <bool> live: root.enabled && !root.saving;
+    background: #0b0b0c;
+    border-radius: 6px;
+    clip: true;
+    TouchArea { }
+    Stripes { width: parent.width; height: parent.height; }
+    // Frame and brackets.
+    Rectangle { border-width: 2px; border-color: Theme.button-outline; border-radius: 6px; }
+    Bracket { x: 8px; y: 8px; }
+    Bracket { x: parent.width - self.width - 8px; y: 8px; right: true; }
+    Bracket { x: 8px; y: parent.height - self.height - 8px; bottom: true; }
+    Bracket { x: parent.width - self.width - 8px; y: parent.height - self.height - 8px; right: true; bottom: true; }
+    keys := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Escape && !root.saving) {
+                if (root.recording >= 0) { root.recording = -1; } else { root.cancel(); }
+                return accept;
+            }
+            return reject;
+        }
+        VerticalLayout {
+            padding-left: 22px;
+            padding-right: 22px;
+            padding-top: 14px;
+            padding-bottom: 16px;
+            spacing: 10px;
+            // Header: gear, SETTINGS, version, close.
+            HorizontalLayout {
+                height: 48px;
+                spacing: 12px;
+                LineIcon { width: 26px; height: 26px; cross-axis-self-alignment: center; icon: SettingIcons.gear; stroke-width: 1.8px; }
+                Text { text: @tr("SETTINGS"); color: Theme.button-outline; font-size: 24px; letter-spacing: 3px; vertical-alignment: center; }
+                Text { font-family: Fonts.settings; text: "HellLocker " + root.version; color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                Rectangle {
+                    width: 34px;
+                    height: 34px;
+                    cross-axis-self-alignment: center;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: Theme.button-outline;
+                    background: close-touch.has-hover ? #ffd21f26 : #0b0b0c;
+                    accessible-role: button;
+                    accessible-label: @tr("Close");
+                    LineIcon { x: 10px; y: 10px; width: 14px; height: 14px; icon: "M 4 4 L 20 20 M 20 4 L 4 20"; stroke-width: 2px; }
+                    close-touch := TouchArea {
+                        enabled: root.live;
+                        mouse-cursor: pointer;
+                        clicked => { root.cancel(); }
+                    }
+                }
+            }
+            Rectangle { height: 1px; background: #ffd21f40; }
+            HorizontalLayout {
+                spacing: 8px;
+                Tab { text: @tr("Gameplay"); icon: SettingIcons.ready; chosen: root.tab == 0; enabled: root.live; clicked => { root.recording = -1; root.tab = 0; } }
+                Tab { text: @tr("Panel"); icon: SettingIcons.monitor; chosen: root.tab == 1; enabled: root.live; clicked => { root.recording = -1; root.tab = 1; } }
+                Tab { text: @tr("Shortcuts"); icon: SettingIcons.keyboard; chosen: root.tab == 2; enabled: root.live; clicked => { root.tab = 2; } }
+                Tab { text: @tr("Help"); icon: SettingIcons.bug; chosen: root.tab == 3; enabled: root.live; clicked => { root.recording = -1; root.tab = 3; } }
+            }
+            Rectangle { height: 2px; background: Theme.button-outline; }
+
+            if root.tab == 0: ScrollView {
+                vertical-stretch: 1;
+                content-width: self.visible-width - 10px;
+                VerticalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    SectionTitle { text: @tr("APPLYING PRESETS"); }
+                    ToggleCard {
+                        icon: SettingIcons.order;
+                        title: @tr("Apply Stratagems in saved order");
+                        description: @tr("Only when all four Stratagem slots start empty.");
+                        checked <=> root.apply-in-saved-order;
+                        enabled: root.live;
+                    }
+                    ToggleCard {
+                        icon: SettingIcons.ready;
+                        title: @tr("Automatic Readying");
+                        description: @tr("Ready up after a preset with a Booster is applied.");
+                        checked <=> root.auto-ready-up;
+                        enabled: root.live;
+                    }
+                    ToggleCard {
+                        icon: SettingIcons.patient;
+                        title: @tr("Patient mode");
+                        description: @tr("Waits up to three times longer for the game. Turn on if menus open slowly or the game hitches and presets stop partway.");
+                        checked <=> root.patient-mode;
+                        enabled: root.live;
+                    }
+                    SectionTitle { text: @tr("SAVING PRESETS"); }
+                    ToggleCard {
+                        icon: SettingIcons.shield;
+                        title: @tr("Booster Fallbacking");
+                        description: @tr("If the saved Booster is taken, wait for you to pick another and save it as the fallback.");
+                        checked <=> root.save-fallback-when-taken;
+                        enabled: root.live;
+                    }
+                    ToggleCard {
+                        icon: SettingIcons.sound;
+                        title: @tr("Sound when saved");
+                        description: @tr("A short Windows chime when a preset has been saved.");
+                        checked <=> root.save-sound;
+                        enabled: root.live;
+                    }
+                    HorizontalLayout {
+                        alignment: end;
+                        padding-top: 4px;
+                        ActionButton {
+                            text: @tr("Reset this tab");
+                            icon: SettingIcons.reset;
+                            enabled: root.live;
+                            clicked => {
+                                root.apply-in-saved-order = false;
+                                root.auto-ready-up = false;
+                                root.patient-mode = false;
+                                root.save-fallback-when-taken = false;
+                                root.save-sound = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 1: ScrollView {
+                vertical-stretch: 1;
+                content-width: self.visible-width - 10px;
+                VerticalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    SectionTitle { text: @tr("BEHAVIOUR"); }
+                    ToggleCard {
+                        icon: SettingIcons.pin;
+                        title: @tr("Keep the panel open");
+                        description: @tr("Stays up when you click the game, so it can sit on another monitor.");
+                        checked <=> root.keep-open;
+                        enabled: root.live;
+                    }
+                    ToggleCard {
+                        icon: SettingIcons.power;
+                        title: @tr("Start with Windows");
+                        description: @tr("Starts HellLocker in the tray when you sign in.");
+                        checked <=> root.start-with-windows;
+                        enabled: root.live;
+                    }
+                    SettingCard {
+                        icon: SettingIcons.monitor;
+                        title: @tr("Display");
+                        description: @tr("Where the panel and the status pop-up appear.");
+                        control-width: 200px;
+                        PanelComboBox {
+                            font-family: Fonts.settings;
+                            height: 30px;
+                            model: root.monitor-labels;
+                            current-index <=> root.selected-monitor;
+                            enabled: root.live;
+                        }
+                    }
+                    SettingCard {
+                        icon: SettingIcons.popup;
+                        title: @tr("Status pop-up");
+                        description: @tr("The small notice that shows progress while the panel is hidden.");
+                        control-width: 210px;
+                        Segments {
+                            options: [@tr("Top right"), @tr("Top left"), @tr("Off")];
+                            current <=> root.status-popup;
+                            enabled: root.live;
+                        }
+                    }
+                    SectionTitle { text: @tr("LOOK"); }
+                    SettingCard {
+                        icon: SettingIcons.size;
+                        title: @tr("Panel size");
+                        description: @tr("On top of Windows display scaling. Applies after a restart.");
+                        control-width: 220px;
+                        Segments {
+                            options: ["100", "125", "150", "175", "200"];
+                            current <=> root.ui-scale-index;
+                            enabled: root.live;
+                        }
+                    }
+                    SettingCard {
+                        icon: SettingIcons.picture;
+                        title: @tr("Background");
+                        description: @tr("How solid the background art is. Shows as you drag.");
+                        control-width: 200px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            OpacitySlider {
+                                cross-axis-self-alignment: center;
+                                value <=> root.background-opacity;
+                                enabled: root.live;
+                            }
+                            Text {
+                                width: 42px;
+                                font-family: Fonts.settings;
+                                text: Math.round(root.background-opacity) + "%";
+                                color: Theme.button-outline;
+                                font-size: 14px;
+                                font-weight: 700;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    SettingCard {
+                        icon: SettingIcons.globe;
+                        title: @tr("Language");
+                        description: @tr("Follow system, or pick one.");
+                        control-width: 200px;
+                        PanelComboBox {
+                            font-family: Fonts.settings;
+                            height: 30px;
+                            model: [@tr("Follow system"), "English", "简体中文", "繁體中文",
+                                "日本語", "한국어", "Deutsch", "Français", "Italiano",
+                                "Español (España)", "Español (Latinoamérica)",
+                                "Português (Brasil)", "Português (Portugal)", "Polski", "Русский"];
+                            current-index <=> root.selected-language;
+                            font-families: root.language-fonts;
+                            enabled: root.live;
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: end;
+                        padding-top: 4px;
+                        ActionButton {
+                            text: @tr("Reset this tab");
+                            icon: SettingIcons.reset;
+                            enabled: root.live;
+                            clicked => {
+                                root.keep-open = true;
+                                root.start-with-windows = false;
+                                root.selected-monitor = 0;
+                                root.status-popup = 0;
+                                root.ui-scale-index = 2;
+                                root.background-opacity = 85;
+                                root.selected-language = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 2: ShortcutEditor {
+                vertical-stretch: 1;
+                rows: root.rows;
+                recording <=> root.recording;
+                enabled: root.live;
+                clear(index) => { keys.focus(); root.clear(index); }
+                reset => { keys.focus(); root.reset-shortcuts(); }
+            }
+            if (root.tab == 2 && root.shortcut-warning != "" && root.error == ""): Text {
+                font-family: Fonts.settings;
+                text: @tr("Currently unavailable:\n") + root.shortcut-warning;
+                color: Theme.warning;
+                wrap: word-wrap;
+                font-size: 12px;
+                max-height: 56px;
+                overflow: elide;
+            }
+
+            if root.tab == 3: ScrollView {
+                vertical-stretch: 1;
+                content-width: self.visible-width - 10px;
+                VerticalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    SectionTitle { text: @tr("REPORT A PROBLEM"); }
+                    SettingCard {
+                        icon: SettingIcons.bug;
+                        title: @tr("Report a bug");
+                        description: @tr("Opens the Bugs tab on the HellLocker Nexus page. Say what you did, and attach app.log and last_failure.zip from the data folder.");
+                        control-width: 150px;
+                        ActionButton { text: @tr("Open Bugs tab"); enabled: root.live; clicked => { root.help("report-bug"); } }
+                    }
+                    SettingCard {
+                        icon: SettingIcons.folder;
+                        title: @tr("Data folder");
+                        description: @tr("Your presets, settings, app.log and last_failure.zip.");
+                        control-width: 150px;
+                        ActionButton { text: @tr("Open folder"); enabled: root.live; clicked => { root.help("open-folder"); } }
+                    }
+                    SettingCard {
+                        icon: SettingIcons.info;
+                        title: @tr("System info");
+                        description: @tr("Copies your HellLocker version, Windows version, displays and game display settings, to paste into a bug report. No names or file paths.");
+                        control-width: 150px;
+                        ActionButton { text: @tr("Copy"); enabled: root.live; clicked => { root.help("copy-info"); } }
+                    }
+                    SectionTitle { text: @tr("YOUR PRESETS"); }
+                    SettingCard {
+                        icon: SettingIcons.save;
+                        title: @tr("Back up presets");
+                        description: @tr("Saves every preset, its pictures and your settings into one zip file.");
+                        control-width: 150px;
+                        ActionButton { text: @tr("Save backup…"); enabled: root.live; clicked => { root.help("backup"); } }
+                    }
+                    SettingCard {
+                        icon: SettingIcons.restore;
+                        title: @tr("Restore from a backup");
+                        description: @tr("Replaces your presets and settings with a backup, then restarts HellLocker. What you have now is kept in backups\\before-restore.zip.");
+                        control-width: 150px;
+                        ActionButton { text: @tr("Restore…"); enabled: root.live; clicked => { root.help("restore"); } }
+                    }
+                }
+            }
+
+            if (root.error != ""): Text {
+                font-family: Fonts.settings;
+                text: root.error;
+                color: Theme.error;
+                wrap: word-wrap;
+                font-size: 12px;
+                max-height: 56px;
+                overflow: elide;
+            }
+            Rectangle { height: 1px; background: #ffd21f40; }
+            HorizontalLayout {
+                height: 34px;
+                spacing: 12px;
+                Text {
+                    font-family: Fonts.settings;
+                    horizontal-stretch: 1;
+                    text: root.notice != "" ? root.notice
+                        : root.tab == 2 ? @tr("Shortcuts pause while you record one.")
+                        : root.tab == 3 ? @tr("These act right away; Save is only for settings.")
+                        : @tr("Changes apply when you press Save.");
+                    color: root.notice != "" ? Theme.success : Theme.text-secondary;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                }
+                PanelButton { font-family: Fonts.settings; width: 110px; text: @tr("Cancel"); filled: true; enabled: root.live; clicked => { root.cancel(); } }
+                PanelButton { font-family: Fonts.settings; width: 110px; text: root.saving ? @tr("Saving…") : @tr("Save"); accent: true; enabled: root.live && root.recording < 0; clicked => { keys.focus(); root.save(); } }
+            }
+        }
+    }
+}

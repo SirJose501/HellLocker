@@ -1,0 +1,169 @@
+// HellLocker 1.9.3: the Shortcuts tab. Each binding shows as keycaps; a binding used
+// twice is marked, and recording shows "Press keys…".
+import { Theme, Fonts } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { ShortcutRow } from "models.slint";
+import { UiText } from "text.slint";
+
+component Keycap inherits Rectangle {
+    in property <string> text;
+    in property <bool> clash;
+    width: key-text.preferred-width + 18px;
+    height: 28px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: root.clash ? Theme.error : #7b817d;
+    background: #2a2e2e;
+    Rectangle { y: parent.height - 3px; height: 3px; border-radius: 2px; background: #00000080; }
+    key-text := Text {
+        font-family: Fonts.settings;
+        text: root.text;
+        color: Theme.text;
+        font-size: 13px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component BindingRow inherits Rectangle {
+    in property <ShortcutRow> item;
+    in property <bool> recording;
+    in property <bool> enabled: true;
+    in property <bool> panel-row;
+    callback record();
+    callback clear();
+    height: 56px;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: root.recording ? Theme.button-outline : root.item.clash ? #ef9b9480 : #ffffff12;
+    background: root.recording ? #ffd21f14 : row-touch.has-hover && root.enabled ? #ffffff0d : #00000073;
+    accessible-role: button;
+    accessible-label: (root.panel-row ? @tr("Show / hide panel") : UiText.preset-title(root.item.label, root.item.number)) + ": " + (root.item.binding == "" ? @tr("Unassigned") : root.item.binding);
+    accessible-action-default => { if (root.enabled) { root.record(); } }
+    if root.panel-row: Rectangle { x: 0px; width: 3px; height: parent.height; background: Theme.button-outline; }
+    row-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.record(); }
+    }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 10px;
+        spacing: 6px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 1px;
+            Text {
+                font-family: Fonts.settings;
+                text: root.panel-row ? @tr("Show / hide panel") : root.item.label != "" ? root.item.label : UiText.preset-title(root.item.label, root.item.number);
+                color: Theme.text; font-size: 14px; font-weight: 600; overflow: elide;
+            }
+            Text {
+                font-family: Fonts.settings;
+                text: root.item.clash ? @tr("Also used by another shortcut")
+                    : root.panel-row ? @tr("Global shortcut") : @tr("Preset {}", root.item.number);
+                color: root.item.clash ? Theme.error : Theme.text-secondary; font-size: 11.5px; overflow: elide;
+            }
+        }
+        if root.recording: HorizontalLayout {
+            spacing: 12px;
+            Text { font-family: Fonts.settings; text: @tr("Press keys…"); color: Theme.button-outline; font-size: 13px; font-weight: 700; vertical-alignment: center; }
+            Text { font-family: Fonts.settings; text: @tr("Esc cancels"); color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; }
+        }
+        if (!root.recording && root.item.binding == ""): Text {
+            font-family: Fonts.settings;
+            text: @tr("Unassigned");
+            color: Theme.text-disabled;
+            font-size: 13px;
+            font-italic: true;
+            vertical-alignment: center;
+        }
+        if (!root.recording && root.item.binding != ""): VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                spacing: 5px;
+                for key[index] in root.item.keys: HorizontalLayout {
+                    spacing: 5px;
+                    if (index > 0): Text { text: "+"; color: Theme.text-secondary; font-size: 11px; vertical-alignment: center; }
+                    Keycap { text: key; clash: root.item.clash; }
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+        Rectangle {
+            width: 30px;
+            height: 30px;
+            border-radius: 3px;
+            background: clear-touch.has-hover && clear-touch.enabled ? #ffffff1a : transparent;
+            accessible-role: button;
+            accessible-label: @tr("Clear shortcut");
+            if (root.item.binding != "" && !root.recording): Path {
+                x: 9px; y: 9px; width: 12px; height: 12px;
+                viewbox-width: 12; viewbox-height: 12;
+                commands: "M 1 1 L 11 11 M 11 1 L 1 11";
+                fill: transparent;
+                stroke: Theme.text-secondary;
+                stroke-width: 1.6px;
+            }
+            clear-touch := TouchArea {
+                enabled: root.enabled && root.item.binding != "" && !root.recording;
+                mouse-cursor: pointer;
+                clicked => { root.clear(); }
+            }
+        }
+        }
+    }
+}
+
+export component ShortcutEditor inherits VerticalLayout {
+    in property <bool> enabled;
+    in property <[ShortcutRow]> rows;
+    in-out property <int> recording: -1;
+    callback clear(int);
+    callback reset();
+    spacing: 8px;
+    Text { font-family: Fonts.settings; text: @tr("Click a shortcut, then press your keys. The panel shortcut works anywhere; preset shortcuts work in the game or panel."); color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+    BindingRow {
+        item: root.rows[0];
+        panel-row: true;
+        recording: root.recording == 0;
+        enabled: root.enabled;
+        record => { root.recording = 0; }
+        clear => { root.clear(0); }
+    }
+    ScrollView {
+        vertical-stretch: 1;
+        enabled: root.enabled;
+        content-width: self.visible-width - 10px;
+        VerticalLayout {
+            alignment: start;
+            spacing: 6px;
+            for index in max(0, root.rows.length - 1): BindingRow {
+                item: root.rows[index + 1];
+                recording: root.recording == index + 1;
+                enabled: root.enabled;
+                record => { root.recording = index + 1; }
+                clear => { root.clear(index + 1); }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 10px;
+        Text { font-family: Fonts.settings; text: @tr("Num0–Num9 are keypad keys: keep Num Lock on and avoid Shift with them."); color: Theme.text-disabled; font-size: 11px; wrap: word-wrap; horizontal-stretch: 1; vertical-alignment: center; }
+        reset-button := Rectangle {
+            width: reset-text.preferred-width + 24px;
+            height: 28px;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: root.enabled ? #ffd21fb3 : #ffd21f40;
+            background: reset-touch.has-hover && root.enabled ? #ffd21f1f : #0b0b0c;
+            accessible-role: button;
+            accessible-label: reset-text.text;
+            reset-text := Text { font-family: Fonts.settings; text: @tr("Reset this tab"); color: Theme.button-outline; font-size: 12px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+            reset-touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.recording = -1; root.reset(); } }
+        }
+    }
+}
