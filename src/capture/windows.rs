@@ -1,5 +1,6 @@
 mod color;
 mod display;
+mod gdi;
 mod session;
 mod wgc;
 
@@ -46,10 +47,23 @@ pub(super) struct WindowsCapture {
 
 enum CaptureBackend {
     Wgc(wgc::WgcCapture),
+    /// HellLocker 1.9.7: Wine / Proton, which has no Windows Graphics Capture.
+    Gdi(gdi::GdiCapture),
 }
 
 impl WindowsCapture {
     pub(super) fn new(target: &WindowTarget) -> Result<Self> {
+        if let Some(wine) = crate::platform::system::wine_version() {
+            debug!(%wine, "Wine: copying the game from the screen");
+            return Ok(Self {
+                backend: CaptureBackend::Gdi(gdi::GdiCapture::new(target)?),
+                display_color_info: DisplayColorInfo {
+                    hdr_active: false,
+                    sdr_white_level: 1000,
+                },
+                pixel_format: CapturePixelFormat::Bgra8,
+            });
+        }
         let display_color_info = display::query_color_info_for_window(target.native_handle())
             .context("failed to query target display color state")?;
         let pixel_format = CapturePixelFormat::for_display(display_color_info);
@@ -67,6 +81,9 @@ impl WindowsCapture {
     }
 
     pub(super) fn try_reuse(&mut self, target: &WindowTarget) -> bool {
+        if let CaptureBackend::Gdi(capture) = &mut self.backend {
+            return capture.try_reuse(target);
+        }
         let display_color_info = resolve_display_color_info(target);
         if let Some(info) = display_color_info {
             let required_format = CapturePixelFormat::for_display(info);
@@ -83,6 +100,7 @@ impl WindowsCapture {
 
         let reusable = match &mut self.backend {
             CaptureBackend::Wgc(capture) => capture.try_reuse(target),
+            CaptureBackend::Gdi(capture) => capture.try_reuse(target),
         };
         if reusable && let Some(info) = display_color_info {
             self.display_color_info = info;
@@ -93,12 +111,14 @@ impl WindowsCapture {
     pub(super) fn output_size(&self) -> (u32, u32) {
         match &self.backend {
             CaptureBackend::Wgc(capture) => capture.output_size(),
+            CaptureBackend::Gdi(capture) => capture.output_size(),
         }
     }
 
     pub(super) fn map_to_client(&self, roi: ImageRect, local: (u32, u32)) -> ClientPoint {
         match &self.backend {
             CaptureBackend::Wgc(capture) => capture.map_to_client(roi, local),
+            CaptureBackend::Gdi(capture) => capture.map_to_client(roi, local),
         }
     }
 
@@ -113,6 +133,7 @@ impl WindowsCapture {
     ) -> Result<RgbaImage> {
         match &mut self.backend {
             CaptureBackend::Wgc(capture) => capture.capture_region(client_roi, converter),
+            CaptureBackend::Gdi(capture) => capture.capture_region(client_roi, converter),
         }
     }
 }

@@ -235,3 +235,366 @@ msgstr "Ocultar último error"
 # Tray.
 msgid "Exit"
 msgstr "Salir"
+
+msgid "Favourites"
+msgstr "Favoritos"
+
+msgid "Recently used"
+msgstr "Usados recientemente"
+
+msgid "Folder name"
+msgstr "Nombre de la carpeta"
+
+msgid "Rename folder"
+msgstr "Renombrar carpeta"
+
+msgid "Delete folder (its presets are kept)"
+msgstr "Eliminar carpeta (sus preajustes se conservan)"
+
+msgid "Scan equipment"
+msgstr "Escanear equipamiento"
+
+msgid "Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates."
+msgstr "Recorre una vez cada lista de equipamiento y guarda la imagen de cada objeto, para que guardar preajustes sea más rápido. Empieza en una pantalla de equipamiento y no toques el juego durante unos minutos. Vuelve a hacerlo tras las actualizaciones del juego."
+
+msgid "Show / hide"
+msgstr "Mostrar / ocultar"
+
+msgid "Global shortcut: shows or hides the panel from anywhere, also in game. Change it in Settings."
+msgstr "Atajo global: muestra u oculta el panel desde cualquier sitio, también en el juego. Puedes cambiarlo en Ajustes."
+
+msgid "All factions"
+msgstr "Todas las facciones"
+
+msgid "Pick a faction first"
+msgstr "Elige primero una facción"
+
+msgid "All sub-factions"
+msgstr "Todas las subfacciones"
+
+msgid "All missions"
+msgstr "Todas las misiones"
+
+msgid "Search presets"
+msgstr "Buscar preajustes"
+
+msgid "Clear search"
+msgstr "Borrar búsqueda"
+
+msgid "+ New folder"
+msgstr "+ Nueva carpeta"
+
+msgid "Favourite"
+msgstr "Favorito"
+
+msgid "Remove from Favourites"
+msgstr "Quitar de favoritos"
+
+msgid "Add to Favourites"
+msgstr "Añadir a favoritos"
+
+msgid "↑↓ / W S  ·  A / D faction  ·  Q / E mission"
+msgstr "↑↓ / W S  ·  A / D facción  ·  Q / E misión"
+
+msgid "Keys while the panel has focus: select a preset, change the faction filter, change the mission filter"
+msgstr "Teclas cuando el panel tiene el foco: elegir un preajuste, cambiar el filtro de facción, cambiar el filtro de misión"
+
+msgid "Show the preset details"
+msgstr "Mostrar los detalles del preajuste"
+
+msgid "Hide the preset details"
+msgstr "Ocultar los detalles del preajuste"
+
+msgid "Duplicate preset (Ctrl+D)"
+msgstr "Duplicar preajuste (Ctrl+D)"
+
+msgid "Faction"
+msgstr "Facción"
+
+msgid "Sub-faction"
+msgstr "Subfacción"
+
+msgid "Mission"
+msgstr "Misión"
+
+msgid "Unticked: left as they are when saving and applying"
+msgstr "Sin marcar: se dejan como están al guardar y aplicar"
+
+msgid "No presets match the search."
+msgstr "Ningún preajuste coincide con la búsqueda."
+
+msgid "No presets for this filter yet. Use + New preset to make one."
+msgstr "Aún no hay preajustes para este filtro. Usa + Nuevo preajuste para crear uno."
+
+msgid "Notes"
+msgstr "Notas"
+
+msgid "Saved when you click away"
+msgstr "Se guarda al hacer clic en otro sitio"
+
+msgid "Add notes: what this loadout is for, what to bring, who runs what…"
+msgstr "Añade notas: para qué es este equipamiento, qué llevar, quién se encarga de qué…"
+
+msgid "Stop (Backspace)"
+msgstr "Detener (Retroceso)"
+
+msgid "SETTINGS"
+msgstr "AJUSTES"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Gameplay"
+msgstr "Juego"
+
+msgid "Panel"
+msgstr "Panel"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "APPLYING PRESETS"
+msgstr "AL APLICAR PREAJUSTES"
+
+msgid "Only when all four Stratagem slots start empty."
+msgstr "Solo si las cuatro ranuras de estratagema empiezan vacías."
+
+msgid "Automatic Readying"
+msgstr "Preparación automática"
+
+msgid "Ready up after a preset with a Booster is applied."
+msgstr "Te marca como listo tras aplicar un preajuste con potenciador."
+
+msgid "Patient mode"
+msgstr "Modo paciente"
+
+msgid "Waits up to three times longer for the game. Turn on if menus open slowly or the game hitches and presets stop partway."
+msgstr "Espera hasta tres veces más al juego. Actívalo si los menús tardan en abrirse o el juego da tirones y los preajustes se quedan a medias."
+
+msgid "SAVING PRESETS"
+msgstr "AL GUARDAR PREAJUSTES"
+
+msgid "Booster Fallbacking"
+msgstr "Potenciador de reserva"
+
+msgid "If the saved Booster is taken, wait for you to pick another and save it as the fallback."
+msgstr "Si el potenciador guardado ya está ocupado, espera a que elijas otro y lo guarda como reserva."
+
+msgid "Sound when saved"
+msgstr "Sonido al guardar"
+
+msgid "A short Windows chime when a preset has been saved."
+msgstr "Un breve sonido de Windows cuando se guarda un preajuste."
+
+msgid "Reset this tab"
+msgstr "Restablecer esta pestaña"
+
+msgid "BEHAVIOUR"
+msgstr "COMPORTAMIENTO"
+
+msgid "Keep the panel open"
+msgstr "Mantener el panel abierto"
+
+msgid "Stays up when you click the game, so it can sit on another monitor."
+msgstr "Sigue visible al hacer clic en el juego, para tenerlo en otro monitor."
+
+msgid "Start with Windows"
+msgstr "Iniciar con Windows"
+
+msgid "Starts HellLocker in the tray when you sign in."
+msgstr "Inicia HellLocker en la bandeja del sistema al iniciar sesión."
+
+msgid "Where the panel and the status pop-up appear."
+msgstr "Dónde aparecen el panel y el aviso de estado."
+
+msgid "Status pop-up"
+msgstr "Aviso de estado"
+
+msgid "The small notice that shows progress while the panel is hidden."
+msgstr "El pequeño aviso que muestra el progreso mientras el panel está oculto."
+
+msgid "Top right"
+msgstr "Arriba a la derecha"
+
+msgid "Top left"
+msgstr "Arriba a la izquierda"
+
+msgid "Off"
+msgstr "Desactivado"
+
+msgid "LOOK"
+msgstr "ASPECTO"
+
+msgid "Panel size"
+msgstr "Tamaño del panel"
+
+msgid "On top of Windows display scaling. Applies after a restart."
+msgstr "Además del escalado de pantalla de Windows. Se aplica tras reiniciar."
+
+msgid "Background"
+msgstr "Fondo"
+
+msgid "How solid the background art is. Shows as you drag."
+msgstr "Opacidad de la imagen de fondo. Se ve mientras arrastras."
+
+msgid "Follow system, or pick one."
+msgstr "Seguir al sistema o elegir uno."
+
+msgid "BEFORE YOU PLAY"
+msgstr "ANTES DE JUGAR"
+
+msgid "Check my setup"
+msgstr "Comprobar mi configuración"
+
+msgid "Looks at the game's window and resolution, HDR, overlays and the equipment scan, and says what to change. Nothing is clicked."
+msgstr "Revisa la ventana y la resolución del juego, el HDR, las superposiciones y el escaneo de equipamiento, y te dice qué cambiar. No se hace clic en nada."
+
+msgid "Check again"
+msgstr "Comprobar de nuevo"
+
+msgid "Check"
+msgstr "Comprobar"
+
+msgid "REPORT A PROBLEM"
+msgstr "INFORMAR DE UN PROBLEMA"
+
+msgid "Report a bug"
+msgstr "Informar de un error"
+
+msgid "Opens the Bugs tab on the HellLocker Nexus page. Say what you did, and attach app.log and last_failure.zip from the data folder."
+msgstr "Abre la pestaña Bugs de la página de HellLocker en Nexus. Explica qué hiciste y adjunta app.log y last_failure.zip de la carpeta de datos."
+
+msgid "Open Bugs tab"
+msgstr "Abrir pestaña Bugs"
+
+msgid "Data folder"
+msgstr "Carpeta de datos"
+
+msgid "Your presets, settings, app.log and last_failure.zip."
+msgstr "Tus preajustes, ajustes, app.log y last_failure.zip."
+
+msgid "Open folder"
+msgstr "Abrir carpeta"
+
+msgid "System info"
+msgstr "Información del sistema"
+
+msgid "Copies your HellLocker version, Windows version, displays and game display settings, to paste into a bug report. No names or file paths."
+msgstr "Copia la versión de HellLocker, la versión de Windows, las pantallas y los ajustes de imagen del juego, para pegarlos en un informe de error. Sin nombres ni rutas de archivos."
+
+msgid "YOUR PRESETS"
+msgstr "TUS PREAJUSTES"
+
+msgid "Back up presets"
+msgstr "Copia de seguridad"
+
+msgid "Saves every preset, its pictures and your settings into one zip file."
+msgstr "Guarda todos los preajustes, sus imágenes y tus ajustes en un solo archivo zip."
+
+msgid "Save backup…"
+msgstr "Guardar copia…"
+
+msgid "Restore from a backup"
+msgstr "Restaurar una copia de seguridad"
+
+msgid "Replaces your presets and settings with a backup, then restarts HellLocker. What you have now is kept in backups\\before-restore.zip."
+msgstr "Sustituye tus preajustes y ajustes por una copia de seguridad y reinicia HellLocker. Lo que tienes ahora se guarda en backups\\before-restore.zip."
+
+msgid "Restore…"
+msgstr "Restaurar…"
+
+msgid "Shortcuts pause while you record one."
+msgstr "Los atajos se pausan mientras grabas uno."
+
+msgid "These act right away; Save is only for settings."
+msgstr "Esto se hace al momento; Guardar es solo para los ajustes."
+
+msgid "Changes apply when you press Save."
+msgstr "Los cambios se aplican al pulsar Guardar."
+
+msgid "Also used by another shortcut"
+msgstr "También lo usa otro atajo"
+
+msgid "Esc cancels"
+msgstr "Esc cancela"
+
+msgid "Click a shortcut, then press your keys. The panel shortcut works anywhere; preset shortcuts work in the game or panel."
+msgstr "Haz clic en un atajo y pulsa tus teclas. El atajo del panel funciona en cualquier sitio; los de preajustes, en el juego o en el panel."
+
+msgid "Num0–Num9 are keypad keys: keep Num Lock on and avoid Shift with them."
+msgstr "Num0–Num9 son las teclas del teclado numérico: mantén Bloq Num activado y no las combines con Mayús."
+
+msgid "to stop"
+msgstr "para detener"
+
+msgid "Icons"
+msgstr "Iconos"
+
+msgid "First icon"
+msgstr "Primer icono"
+
+msgid "Second icon"
+msgstr "Segundo icono"
+
+msgid "First icon: shown beside the preset's name. Click to change it."
+msgstr "Primer icono: se muestra junto al nombre del preajuste. Haz clic para cambiarlo."
+
+msgid "Second icon: shown beside the first. Click to pick one."
+msgstr "Segundo icono: se muestra junto al primero. Haz clic para elegir uno."
+
+msgid "Search icons"
+msgstr "Buscar iconos"
+
+msgid "All"
+msgstr "Todos"
+
+msgid "Factions"
+msgstr "Facciones"
+
+msgid "Sub-factions"
+msgstr "Subfacciones"
+
+msgid "Missions"
+msgstr "Misiones"
+
+msgid "Stratagems"
+msgstr "Estratagemas"
+
+msgid "Boosters"
+msgstr "Potenciadores"
+
+msgid "Other"
+msgstr "Otros"
+
+msgid "Your icons"
+msgstr "Tus iconos"
+
+msgid "Default"
+msgstr "Predeterminado"
+
+msgid "None"
+msgstr "Ninguno"
+
+msgid "The faction's emblem (the sub-faction's when it has one)"
+msgstr "El emblema de la facción (o de la subfacción, si hay una)"
+
+msgid "No second icon"
+msgstr "Sin segundo icono"
+
+msgid "No icons match the search."
+msgstr "Ningún icono coincide con la búsqueda."
+
+msgid "Add your own: PNG pictures in the icons folder."
+msgstr "Añade los tuyos: imágenes PNG en la carpeta icons."
+
+msgid "Planet conditions"
+msgstr "Condiciones planetarias"
+
+msgid "Folder logo"
+msgstr "Logo de la carpeta"
+
+msgid "Change the folder's logo"
+msgstr "Cambiar el logo de la carpeta"
+
+msgid "The folder symbol"
+msgstr "El símbolo de carpeta"

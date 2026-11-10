@@ -21,7 +21,7 @@ use crate::{
 /// The pseudo preset name a scan runs under (status, logs and failure reports).
 pub(crate) const SCAN_PRESET: &str = "equipment_scan";
 
-const LIBRARY_DIR: &str = "library";
+pub(crate) const LIBRARY_DIR: &str = "library";
 const LIBRARY_VERSION: u32 = 1;
 /// Same identity rules as the equipment cache: a clear best match, well ahead of the rest.
 const MATCH_THRESHOLD: f32 = 0.90;
@@ -36,14 +36,14 @@ struct LibraryFile {
     kinds: Vec<KindFile>,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct KindFile {
     /// The client size the names were read at; names are compared across sizes.
     client_size: (u32, u32),
     items: Vec<ItemFile>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ItemFile {
     name: String,
     picture: String,
@@ -87,6 +87,11 @@ impl Library {
 
     pub fn is_empty(&self) -> bool {
         self.kinds.iter().all(Vec::is_empty)
+    }
+
+    /// How many pictures the library holds.
+    pub fn len(&self) -> usize {
+        self.kinds.iter().map(Vec::len).sum()
     }
 
     /// The picture saved for the item with this name, when one entry clearly matches.
@@ -166,21 +171,26 @@ pub(crate) fn save_batch(presets: &Path, batch: &ScanBatch) -> Result<()> {
     file.kinds
         .resize_with(EquipmentKind::ALL.len(), KindFile::default);
     let slot = batch.kind.index();
-    // Older files of this slot are replaced by the new numbering.
-    let dir = resolve_template_path(
+    file.kinds[slot] = write_items(presets, &format!("{}", slot + 1), batch)?;
+    let path = library_path(presets)?;
+    fs::write(&path, serde_json::to_string_pretty(&file)?)
+        .with_context(|| format!("failed to write {}", path.display()))
+}
+
+/// Writes a batch's names and pictures under `library/<dir>`, replacing what was there.
+fn write_items(presets: &Path, dir: &str, batch: &ScanBatch) -> Result<KindFile> {
+    // Older files here are replaced by the new numbering.
+    let folder = resolve_template_path(
         presets,
-        &format!("{LOCAL_TEMPLATES_DIR}/{LIBRARY_DIR}/{}", slot + 1),
+        &format!("{LOCAL_TEMPLATES_DIR}/{LIBRARY_DIR}/{dir}"),
     )?;
-    if dir.exists() {
-        fs::remove_dir_all(&dir).with_context(|| format!("failed to clear {}", dir.display()))?;
+    if folder.exists() {
+        fs::remove_dir_all(&folder)
+            .with_context(|| format!("failed to clear {}", folder.display()))?;
     }
     let mut items = Vec::with_capacity(batch.items.len());
     for (index, (name, picture)) in batch.items.iter().enumerate() {
-        let base = format!(
-            "{LOCAL_TEMPLATES_DIR}/{LIBRARY_DIR}/{}/{}",
-            slot + 1,
-            index + 1
-        );
+        let base = format!("{LOCAL_TEMPLATES_DIR}/{LIBRARY_DIR}/{dir}/{}", index + 1);
         let item = ItemFile {
             name: format!("{base}-name.png"),
             picture: format!("{base}-picture.png"),
@@ -189,13 +199,171 @@ pub(crate) fn save_batch(presets: &Path, batch: &ScanBatch) -> Result<()> {
         save_template_image(presets, &item.picture, picture)?;
         items.push(item);
     }
-    file.kinds[slot] = KindFile {
+    Ok(KindFile {
         client_size: batch.client_size,
         items,
-    };
-    let path = library_path(presets)?;
-    fs::write(&path, serde_json::to_string_pretty(&file)?)
-        .with_context(|| format!("failed to write {}", path.display()))
+    })
+}
+
+/// HellLocker: where an unfinished scan stopped, so the next scan carries on from there.
+///
+/// Slots finished in that scan are already in the library and are skipped. The slot it
+/// stopped in keeps its pictures under `library/partial` (the library's own copy of
+/// that slot is left alone until the slot is scanned to the end); the resumed walk
+/// still visits those items, to get past them, but does not wait for their pictures.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub(crate) struct ScanState {
+    /// The game's client size; a scan at another size starts over.
+    pub client_size: (u32, u32),
+    /// When the unfinished scan started (seconds since 1970).
+    pub started: u64,
+    /// Slots finished in that scan, by `EquipmentKind::index`.
+    pub done: Vec<usize>,
+    /// The slot it stopped in, and its pictures so far.
+    partial: Option<(usize, KindFile)>,
+}
+
+/// An unfinished scan is resumed for this long; after that a scan starts over (the game
+/// may have been updated in between).
+const RESUME_WITHIN_SECS: u64 = 3 * 24 * 60 * 60;
+const PARTIAL_DIR: &str = "partial";
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or_default()
+}
+
+fn state_path(presets: &Path) -> Result<std::path::PathBuf> {
+    resolve_template_path(
+        presets,
+        &format!("{LOCAL_TEMPLATES_DIR}/{LIBRARY_DIR}/scan_state.json"),
+    )
+}
+
+impl ScanState {
+    /// The unfinished scan to carry on from, or a new one.
+    pub fn start(presets: &Path, client_size: (u32, u32)) -> Self {
+        let fresh = Self {
+            client_size,
+            started: now_secs(),
+            ..Self::default()
+        };
+        let Ok(path) = state_path(presets) else {
+            return fresh;
+        };
+        if !path.exists() {
+            return fresh;
+        }
+        match crate::assets::parse_json_file::<Self>(&path) {
+            Ok(state)
+                if state.client_size == client_size
+                    && now_secs().saturating_sub(state.started) < RESUME_WITHIN_SECS
+                    && (!state.done.is_empty() || state.partial.is_some()) =>
+            {
+                state
+            }
+            Ok(_) => {
+                tracing::info!("an older unfinished scan was found; starting over");
+                Self::clear(presets);
+                fresh
+            }
+            Err(error) => {
+                tracing::warn!(error = %format!("{error:#}"), "unfinished scan could not be read; starting over");
+                Self::clear(presets);
+                fresh
+            }
+        }
+    }
+
+    /// An unfinished scan that a scan would carry on from (any game size).
+    pub fn peek(presets: &Path) -> Option<Self> {
+        let path = state_path(presets).ok()?;
+        let state: Self = crate::assets::parse_json_file(&path).ok()?;
+        (state.resuming() && now_secs().saturating_sub(state.started) < RESUME_WITHIN_SECS)
+            .then_some(state)
+    }
+
+    pub fn resuming(&self) -> bool {
+        !self.done.is_empty() || self.partial.is_some()
+    }
+
+    pub fn is_done(&self, kind: EquipmentKind) -> bool {
+        self.done.contains(&kind.index())
+    }
+
+    /// The batch to scan `kind` into, holding the pictures kept from the unfinished scan.
+    pub fn batch(&self, presets: &Path, kind: EquipmentKind) -> ScanBatch {
+        let mut batch = ScanBatch::new(kind, self.client_size);
+        if let Some((slot, file)) = &self.partial
+            && *slot == kind.index()
+        {
+            for item in &file.items {
+                let name = super::equipment::load_text(
+                    presets,
+                    &item.name,
+                    file.client_size,
+                    EquipmentText::Name,
+                );
+                match (name, load_template_image(presets, &item.picture)) {
+                    (Ok(name), Ok(picture)) => batch.push(name, picture),
+                    _ => tracing::debug!(name = %item.name, "skipping an unreadable kept picture"),
+                }
+            }
+            tracing::info!(?kind, items = batch.len(), "resuming this slot's scan");
+        }
+        batch
+    }
+
+    /// A slot was scanned to the end and saved to the library.
+    pub fn finish(&mut self, presets: &Path, kind: EquipmentKind) {
+        self.done.push(kind.index());
+        self.partial = None;
+        self.save(presets);
+    }
+
+    /// The scan stopped inside `batch`'s slot: keep its pictures for the next scan.
+    pub fn stop(&mut self, presets: &Path, batch: &ScanBatch) {
+        self.partial = if batch.len() == 0 {
+            None
+        } else {
+            match write_items(presets, PARTIAL_DIR, batch) {
+                Ok(file) => Some((batch.kind.index(), file)),
+                Err(error) => {
+                    tracing::warn!(error = %format!("{error:#}"), "could not keep the scanned pictures");
+                    None
+                }
+            }
+        };
+        self.save(presets);
+    }
+
+    fn save(&self, presets: &Path) {
+        let result = state_path(presets).and_then(|path| {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::write(&path, serde_json::to_string_pretty(self)?)
+                .with_context(|| format!("failed to write {}", path.display()))
+        });
+        if let Err(error) = result {
+            tracing::warn!(error = %format!("{error:#}"), "could not save the scan's progress");
+        }
+    }
+
+    /// The whole scan finished (or is being thrown away).
+    pub fn clear(presets: &Path) {
+        if let Ok(path) = state_path(presets) {
+            let _ = fs::remove_file(path);
+        }
+        if let Ok(dir) = resolve_template_path(
+            presets,
+            &format!("{LOCAL_TEMPLATES_DIR}/{LIBRARY_DIR}/{PARTIAL_DIR}"),
+        ) {
+            let _ = fs::remove_dir_all(dir);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -250,6 +418,42 @@ mod tests {
                 .picture(&presets, EquipmentKind::Secondary, &name(size, 2))
                 .is_none()
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_unfinished_scan_carries_on() {
+        let dir = std::env::temp_dir().join(format!("hl-scan-state-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let presets = dir.join("presets.json");
+        let size = (1920, 1080);
+        let mut state = ScanState::start(&presets, size);
+        assert!(!state.resuming());
+        // Helmets finish; armor stops after two pictures.
+        state.finish(&presets, EquipmentKind::Helmet);
+        let mut armor = ScanBatch::new(EquipmentKind::Armor, size);
+        for seed in [3, 4] {
+            armor.push(
+                name(size, seed),
+                RgbaImage::from_pixel(8, 8, image::Rgba([1, 2, 3, 255])),
+            );
+        }
+        state.stop(&presets, &armor);
+
+        let state = ScanState::start(&presets, size);
+        assert!(state.resuming());
+        assert!(state.is_done(EquipmentKind::Helmet));
+        assert!(!state.is_done(EquipmentKind::Armor));
+        let resumed = state.batch(&presets, EquipmentKind::Armor);
+        assert_eq!(resumed.len(), 2);
+        // Kept items are passed without taking their pictures again.
+        assert!(!resumed.is_new(&name(size, 4)));
+        assert_eq!(state.batch(&presets, EquipmentKind::Cape).len(), 0);
+
+        // Another game size starts over and forgets the unfinished scan.
+        assert!(!ScanState::start(&presets, (2560, 1440)).resuming());
+        assert!(!ScanState::start(&presets, size).resuming());
         let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -541,3 +541,129 @@ msgstr "點擊一個快捷鍵，然後按下按鍵。面板快捷鍵在任何地
 
 msgid "Num0–Num9 are keypad keys: keep Num Lock on and avoid Shift with them."
 msgstr "Num0–Num9 是數字鍵台按鍵：請保持 Num Lock 開啟，並避免與 Shift 組合。"
+
+msgid "Favourites"
+msgstr "收藏"
+
+msgid "Recently used"
+msgstr "最近使用"
+
+msgid "Favourite"
+msgstr "收藏"
+
+msgid "Remove from Favourites"
+msgstr "取消收藏"
+
+msgid "Add to Favourites"
+msgstr "加入收藏"
+
+msgid "Show the preset details"
+msgstr "顯示預設詳情"
+
+msgid "Hide the preset details"
+msgstr "隱藏預設詳情"
+
+msgid "Duplicate preset (Ctrl+D)"
+msgstr "複製預設 (Ctrl+D)"
+
+msgid "Notes"
+msgstr "備註"
+
+msgid "Saved when you click away"
+msgstr "點擊別處時儲存"
+
+msgid "Add notes: what this loadout is for, what to bring, who runs what…"
+msgstr "新增備註：這套配置的用途、要帶什麼、誰負責什麼…"
+
+msgid "Stop (Backspace)"
+msgstr "停止 (Backspace)"
+
+msgid "BEFORE YOU PLAY"
+msgstr "開始遊戲前"
+
+msgid "Check my setup"
+msgstr "檢查我的設定"
+
+msgid "Looks at the game's window and resolution, HDR, overlays and the equipment scan, and says what to change. Nothing is clicked."
+msgstr "檢查遊戲視窗和解析度、HDR、覆蓋層和裝備掃描，並說明需要改什麼。不會進行任何點擊。"
+
+msgid "Check again"
+msgstr "再次檢查"
+
+msgid "Check"
+msgstr "檢查"
+
+msgid "to stop"
+msgstr "停止"
+
+msgid "Icons"
+msgstr "圖示"
+
+msgid "First icon"
+msgstr "第一個圖示"
+
+msgid "Second icon"
+msgstr "第二個圖示"
+
+msgid "First icon: shown beside the preset's name. Click to change it."
+msgstr "第一個圖示：顯示在預設名稱旁邊。點擊更換。"
+
+msgid "Second icon: shown beside the first. Click to pick one."
+msgstr "第二個圖示：顯示在第一個圖示旁邊。點擊選擇。"
+
+msgid "Search icons"
+msgstr "搜尋圖示"
+
+msgid "All"
+msgstr "全部"
+
+msgid "Factions"
+msgstr "陣營"
+
+msgid "Sub-factions"
+msgstr "分支"
+
+msgid "Missions"
+msgstr "任務"
+
+msgid "Stratagems"
+msgstr "戰略配備"
+
+msgid "Boosters"
+msgstr "強化套件"
+
+msgid "Other"
+msgstr "其他"
+
+msgid "Your icons"
+msgstr "我的圖示"
+
+msgid "Default"
+msgstr "預設"
+
+msgid "None"
+msgstr "無"
+
+msgid "The faction's emblem (the sub-faction's when it has one)"
+msgstr "陣營徽記（選了分支時為分支徽記）"
+
+msgid "No second icon"
+msgstr "不顯示第二個圖示"
+
+msgid "No icons match the search."
+msgstr "沒有符合搜尋的圖示。"
+
+msgid "Add your own: PNG pictures in the icons folder."
+msgstr "加入自己的圖示：把 PNG 圖片放進 icons 資料夾。"
+
+msgid "Planet conditions"
+msgstr "星球環境"
+
+msgid "Folder logo"
+msgstr "資料夾標誌"
+
+msgid "Change the folder's logo"
+msgstr "更換資料夾標誌"
+
+msgid "The folder symbol"
+msgstr "資料夾圖形"

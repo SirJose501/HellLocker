@@ -40,6 +40,10 @@ status_popup = "top_right"
 # HellLocker: play a short sound when a preset is saved.
 save_sound = true
 
+# HellLocker: the right side (preset details) folded away, showing only the preset
+# list. The tab on the divider switches it.
+compact = false
+
 # HellLocker: where you last dragged the panel, in desktop pixels. Empty = top right
 # of the game's display.
 panel_position = []
@@ -61,6 +65,12 @@ cape = true
 # `order` lists the presets in no folder; presets not listed anywhere go last.
 folders = []
 order = []
+
+# HellLocker: the presets applied last (newest first) for the Recently used section,
+# and whether Favourites and Recently used are open. Kept by the panel.
+recent = []
+favorites_open = true
+recent_open = true
 
 # Apply Stratagems in saved order when all four slots start empty.
 apply_in_saved_order = false

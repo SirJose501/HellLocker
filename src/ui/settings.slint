@@ -5,7 +5,7 @@ import { Theme, Fonts } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { PanelButton, PanelComboBox } from "controls.slint";
 import { ShortcutEditor } from "shortcuts.slint";
-import { ShortcutRow } from "models.slint";
+import { ShortcutRow, SetupLine, SetupLevel } from "models.slint";
 
 // Line icons on a 24 x 24 grid, drawn for HellLocker.
 export global SettingIcons {
@@ -29,6 +29,7 @@ export global SettingIcons {
     out property <string> restore: "M 12 15 L 12 4.5 M 7.5 9 L 12 4.5 L 16.5 9 M 4.5 16 L 4.5 19.5 L 19.5 19.5 L 19.5 16";
     out property <string> keyboard: "M 3 7 L 21 7 L 21 17 L 3 17 Z M 6 10 L 7 10 M 9 10 L 10 10 M 12 10 L 13 10 M 15 10 L 16 10 M 18 10 L 18.5 10 M 7 14 L 17 14";
     out property <string> reset: "M 5 12 A 7 7 0 1 0 7.2 6.9 M 7.2 3.2 L 7.2 7.2 L 3.2 7.2";
+    out property <string> check: "M 4 4 L 20 4 L 20 20 L 4 20 Z M 7.5 12 L 10.5 15 L 16.5 9";
 }
 
 component LineIcon inherits Path {
@@ -277,7 +278,9 @@ component ActionButton inherits Rectangle {
     in property <bool> enabled: true;
     callback clicked();
     height: 30px;
-    min-width: label.preferred-width + (root.icon != "" ? 46px : 24px);
+    // Shrinks with its slot (the text then ends in "…"), else fits its text.
+    min-width: 60px;
+    preferred-width: label.preferred-width + (root.icon != "" ? 46px : 24px);
     border-radius: 3px;
     border-width: 1px;
     border-color: root.enabled ? #ffd21fb3 : #ffd21f40;
@@ -295,6 +298,7 @@ component ActionButton inherits Rectangle {
         label := Text {
             font-family: Fonts.settings;
             text: root.text;
+            overflow: elide;
             font-size: 12px;
             font-weight: 700;
             color: root.enabled ? Theme.button-outline : Theme.inactive;
@@ -384,6 +388,8 @@ export component SettingsDialog inherits Rectangle {
     in property <string> notice;
     in property <string> shortcut-warning;
     in property <bool> saving;
+    // HellLocker 1.9.4: what Check my setup found.
+    in property <[SetupLine]> setup-lines;
     // 0 Gameplay, 1 Panel, 2 Shortcuts, 3 Help.
     in-out property <int> tab: 0;
     callback clear(int);
@@ -664,26 +670,69 @@ export component SettingsDialog inherits Rectangle {
                 VerticalLayout {
                     alignment: start;
                     spacing: 8px;
+                    SectionTitle { text: @tr("BEFORE YOU PLAY"); }
+                    SettingCard {
+                        icon: SettingIcons.check;
+                        title: @tr("Check my setup");
+                        description: @tr("Looks at the game's window and resolution, HDR, overlays and the equipment scan, and says what to change. Nothing is clicked.");
+                        control-width: 170px;
+                        ActionButton { text: root.setup-lines.length > 0 ? @tr("Check again") : @tr("Check"); enabled: root.live; clicked => { root.help("check-setup"); } }
+                    }
+                    for line in root.setup-lines: Rectangle {
+                        background: #00000073;
+                        border-radius: 3px;
+                        border-width: 1px;
+                        border-color: line.level == SetupLevel.problem ? #ef9b9466 : #ffffff12;
+                        HorizontalLayout {
+                            padding: 9px;
+                            padding-left: 14px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                y: 1px;
+                                border-radius: 9px;
+                                background: line.level == SetupLevel.good ? #9fd39c33 : line.level == SetupLevel.problem ? #ef9b9433 : #e9d77826;
+                                Path {
+                                    width: 12px;
+                                    height: 12px;
+                                    viewbox-width: 12;
+                                    viewbox-height: 12;
+                                    commands: line.level == SetupLevel.good ? "M 2 6.5 L 5 9.5 L 10 3"
+                                        : line.level == SetupLevel.problem ? "M 6 2 L 6 7 M 6 9.5 L 6 10.5" : "M 6 5 L 6 10 M 6 2 L 6 3";
+                                    fill: transparent;
+                                    stroke: line.level == SetupLevel.good ? Theme.success : line.level == SetupLevel.problem ? Theme.error : Theme.accent;
+                                    stroke-width: 1.8px;
+                                }
+                            }
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: 2px;
+                                Text { font-family: Fonts.settings; text: line.title; color: Theme.text; font-size: 12.5px; font-weight: 600; wrap: word-wrap; }
+                                if (line.detail != ""): Text { font-family: Fonts.settings; text: line.detail; color: Theme.text-secondary; font-size: 11.5px; wrap: word-wrap; }
+                            }
+                        }
+                    }
                     SectionTitle { text: @tr("REPORT A PROBLEM"); }
                     SettingCard {
                         icon: SettingIcons.bug;
                         title: @tr("Report a bug");
                         description: @tr("Opens the Bugs tab on the HellLocker Nexus page. Say what you did, and attach app.log and last_failure.zip from the data folder.");
-                        control-width: 150px;
+                        control-width: 170px;
                         ActionButton { text: @tr("Open Bugs tab"); enabled: root.live; clicked => { root.help("report-bug"); } }
                     }
                     SettingCard {
                         icon: SettingIcons.folder;
                         title: @tr("Data folder");
                         description: @tr("Your presets, settings, app.log and last_failure.zip.");
-                        control-width: 150px;
+                        control-width: 170px;
                         ActionButton { text: @tr("Open folder"); enabled: root.live; clicked => { root.help("open-folder"); } }
                     }
                     SettingCard {
                         icon: SettingIcons.info;
                         title: @tr("System info");
                         description: @tr("Copies your HellLocker version, Windows version, displays and game display settings, to paste into a bug report. No names or file paths.");
-                        control-width: 150px;
+                        control-width: 170px;
                         ActionButton { text: @tr("Copy"); enabled: root.live; clicked => { root.help("copy-info"); } }
                     }
                     SectionTitle { text: @tr("YOUR PRESETS"); }
@@ -691,14 +740,14 @@ export component SettingsDialog inherits Rectangle {
                         icon: SettingIcons.save;
                         title: @tr("Back up presets");
                         description: @tr("Saves every preset, its pictures and your settings into one zip file.");
-                        control-width: 150px;
+                        control-width: 170px;
                         ActionButton { text: @tr("Save backup…"); enabled: root.live; clicked => { root.help("backup"); } }
                     }
                     SettingCard {
                         icon: SettingIcons.restore;
                         title: @tr("Restore from a backup");
                         description: @tr("Replaces your presets and settings with a backup, then restarts HellLocker. What you have now is kept in backups\\before-restore.zip.");
-                        control-width: 150px;
+                        control-width: 170px;
                         ActionButton { text: @tr("Restore…"); enabled: root.live; clicked => { root.help("restore"); } }
                     }
                 }

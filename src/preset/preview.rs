@@ -25,6 +25,8 @@ pub struct PreviewImage {
     pub image: RgbaImage,
     /// HellLocker: an equipment item's picture, when it was saved with one.
     pub picture: Option<RgbaImage>,
+    /// HellLocker 1.9.6: an equipment item's name as text, when it could be read.
+    pub name: Option<String>,
 }
 
 pub enum PreviewContent {
@@ -47,7 +49,8 @@ pub fn load(path: &Path) -> Result<BTreeMap<String, PresetPreview>> {
     let names: BTreeSet<_> = file.presets.keys().chain(file.equipment.keys()).collect();
     // HellLocker: pictures for items saved without one come from Scan equipment.
     let library = super::library::Library::load(path);
-    Ok(names
+    let mut reader = super::names::NameReader::new(path);
+    let previews = names
         .into_iter()
         .map(|name| {
             let stratagems = content(file.presets.get(name).map(|preset| {
@@ -74,6 +77,7 @@ pub fn load(path: &Path) -> Result<BTreeMap<String, PresetPreview>> {
                             role,
                             image: load_template_image(path, &item.path)?,
                             picture: None,
+                            name: None,
                         })
                     })
                     .collect()
@@ -94,10 +98,13 @@ pub fn load(path: &Path) -> Result<BTreeMap<String, PresetPreview>> {
                             .picture
                             .as_deref()
                             .and_then(|relative| load_template_image(path, relative).ok())
-                            .or_else(|| library.picture(path, *kind, &name));
+                            .or_else(|| library.picture(path, *kind, &name))
+                            .map(trim_picture);
+                        let image = name_preview(&name);
                         Ok(PreviewImage {
                             role: PreviewRole::Equipment(*kind),
-                            image: name_preview(&name),
+                            name: reader.read(&image),
+                            image,
                             picture,
                         })
                     })
@@ -111,7 +118,62 @@ pub fn load(path: &Path) -> Result<BTreeMap<String, PresetPreview>> {
                 },
             )
         })
-        .collect())
+        .collect();
+    reader.save();
+    Ok(previews)
+}
+
+/// HellLocker 1.9.6: an item picture without its plain margins (transparent, or the
+/// tile's flat background), so it fills the gear card. A picture that would lose too
+/// much (no clear item in it) is kept as it is.
+pub(crate) fn trim_picture(picture: RgbaImage) -> RgbaImage {
+    let (width, height) = picture.dimensions();
+    if width < 8 || height < 8 {
+        return picture;
+    }
+    let see_through = picture.pixels().any(|pixel| pixel[3] < 250);
+    let corners = [
+        *picture.get_pixel(0, 0),
+        *picture.get_pixel(width - 1, 0),
+        *picture.get_pixel(0, height - 1),
+        *picture.get_pixel(width - 1, height - 1),
+    ];
+    let background: [i32; 3] = std::array::from_fn(|channel| {
+        corners
+            .iter()
+            .map(|pixel| i32::from(pixel[channel]))
+            .sum::<i32>()
+            / 4
+    });
+    let is_item = |pixel: &image::Rgba<u8>| {
+        if see_through {
+            pixel[3] > 24
+        } else {
+            (0..3).any(|channel| (i32::from(pixel[channel]) - background[channel]).abs() > 40)
+        }
+    };
+    let (mut left, mut top, mut right, mut bottom) = (width, height, 0, 0);
+    for (x, y, pixel) in picture.enumerate_pixels() {
+        if is_item(pixel) {
+            left = left.min(x);
+            top = top.min(y);
+            right = right.max(x);
+            bottom = bottom.max(y);
+        }
+    }
+    if right < left || bottom < top {
+        return picture;
+    }
+    let (w, h) = (right - left + 1, bottom - top + 1);
+    if w * h * 10 < width * height {
+        return picture;
+    }
+    let pad = (w.max(h) / 24).max(1);
+    let left = left.saturating_sub(pad);
+    let top = top.saturating_sub(pad);
+    let w = (w + 2 * pad).min(width - left);
+    let h = (h + 2 * pad).min(height - top);
+    image::imageops::crop_imm(&picture, left, top, w, h).to_image()
 }
 
 pub fn equipment_name(path: &Path, preset: &str, kind: EquipmentKind) -> Result<RgbaImage> {
@@ -188,4 +250,35 @@ pub(crate) fn equipment_category(sample: &TextSample) -> RgbaImage {
     let left = (group[0] as u32).saturating_sub(padding);
     let right = (group[group.len() - 1] as u32 + 1 + padding).min(width);
     image::imageops::crop_imm(&image, left, 0, right - left, height).to_image()
+}
+
+#[cfg(test)]
+mod trim_tests {
+    use super::trim_picture;
+    use image::{Rgba, RgbaImage};
+
+    #[test]
+    fn plain_margins_are_trimmed() {
+        // A grey tile with a bright item in the middle.
+        let mut tile = RgbaImage::from_pixel(100, 60, Rgba([40, 40, 40, 255]));
+        for x in 30..70 {
+            for y in 20..40 {
+                tile.put_pixel(x, y, Rgba([220, 200, 120, 255]));
+            }
+        }
+        let trimmed = trim_picture(tile);
+        assert!(trimmed.width() < 50 && trimmed.width() >= 40);
+        assert!(trimmed.height() < 30 && trimmed.height() >= 20);
+        // Transparent margins too.
+        let mut clear = RgbaImage::new(80, 80);
+        for x in 10..70 {
+            for y in 30..50 {
+                clear.put_pixel(x, y, Rgba([255, 255, 255, 255]));
+            }
+        }
+        assert!(trim_picture(clear).height() < 30);
+        // A plain picture stays as it is.
+        let plain = RgbaImage::from_pixel(50, 50, Rgba([10, 10, 10, 255]));
+        assert_eq!(trim_picture(plain).dimensions(), (50, 50));
+    }
 }

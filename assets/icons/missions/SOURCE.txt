@@ -1,0 +1,5 @@
+Mission icons: the four mission types (standard, blitz, eradicate, defense) are
+HellLocker's own line drawings (see src/ui/icons.slint). The mission objective and
+operation icons were supplied by the project owner from the Helldivers Wiki
+(https://helldivers.wiki.gg/wiki/Category:Helldivers_2_-_Icons; many "Traced by Dogo314").
+All rendered to 96 x 96 PNG. names.tsv sets their order and names.

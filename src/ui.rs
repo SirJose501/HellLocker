@@ -18,6 +18,7 @@ use crate::item::EquipmentKind;
 use crate::preset::PresetScope;
 use crate::preset::preview::{PresetPreview, PreviewContent, PreviewRole as PreviewImageRole};
 
+mod icons;
 mod settings;
 mod status;
 #[cfg(target_os = "windows")]
@@ -25,7 +26,7 @@ mod windows;
 
 slint::include_modules!();
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct PresetInfo {
     pub name: String,
     pub label: String,
@@ -33,6 +34,11 @@ pub struct PresetInfo {
     pub faction: Faction,
     pub subfaction: Subfaction,
     pub mission: Mission,
+    /// HellLocker 1.9.4
+    pub favorite: bool,
+    pub notes: String,
+    /// HellLocker 1.9.5: the icon ids beside the name ("" = the slot's default).
+    pub icons: [String; crate::preset_icons::SLOTS],
 }
 
 /// HellLocker: the Help tab's buttons.
@@ -43,6 +49,7 @@ pub enum HelpAction {
     CopySystemInfo,
     Backup,
     Restore,
+    CheckSetup,
 }
 
 pub enum UiRequest {
@@ -79,6 +86,41 @@ pub enum UiRequest {
     Folder(FolderRequest),
     /// HellLocker: a button on Settings > Help.
     Help(HelpAction),
+    /// HellLocker 1.9.4: star or unstar a preset.
+    SetFavorite {
+        preset: String,
+        favorite: bool,
+    },
+    /// HellLocker 1.9.4: a preset's notes were edited.
+    SetNotes {
+        preset: String,
+        notes: String,
+    },
+    /// HellLocker 1.9.4: make a copy of a preset.
+    Duplicate(String),
+    /// HellLocker 1.9.4: open or close Favourites (or, with `recent`, Recently used).
+    OpenPinned {
+        recent: bool,
+        open: bool,
+    },
+    /// HellLocker 1.9.4: fold the right side away, or bring it back.
+    SetCompact(bool),
+    /// HellLocker 1.9.4: the panel's Stop button.
+    Stop,
+    /// HellLocker 1.9.5: a preset's icon in `slot` was picked ("" = back to default).
+    SetIcon {
+        preset: String,
+        slot: usize,
+        id: String,
+    },
+    /// HellLocker 1.9.5: the icon picker opened, or its search / group changed.
+    IconPicker,
+    IconFilter {
+        search: String,
+        group: i32,
+    },
+    /// HellLocker 1.9.5: open the folder for the player's own icons.
+    OpenIconsFolder,
     /// HellLocker: new faction / mission tags for one preset.
     SetTags {
         preset: String,
@@ -100,23 +142,44 @@ pub enum FolderRequest {
         id: String,
         open: bool,
     },
-    /// A preset dropped at `y` (logical pixels from the top of the list).
+    /// HellLocker 1.9.6: a folder's logo was picked ("" = back to the folder symbol).
+    SetIcon {
+        id: String,
+        icon: String,
+    },
+    /// A preset dropped at `y` (logical pixels from the top of the list); `column` is
+    /// how far across the list, in columns (1.5 = the middle of the second column).
     Move {
         preset: String,
+        column: f32,
         y: f32,
     },
 }
 
 // HellLocker: the preset list's row geometry, matching panel.slint.
 const FOLDER_HEIGHT: f32 = 34.0;
-const ROW_HEIGHT: f32 = 40.0;
+const ROW_HEIGHT: f32 = 34.0;
 const ROW_GAP: f32 = 3.0;
+/// HellLocker 1.9.6: presets sit in two columns, filled left to right.
+pub(crate) const COLUMNS: usize = 2;
 
 /// HellLocker: one shown row of the preset list, for finding where a drop lands.
 #[derive(Debug, Clone, PartialEq)]
 enum ListEntry {
-    Folder { id: String, top: f32 },
-    Preset { name: String, top: f32 },
+    Folder {
+        id: String,
+        top: f32,
+    },
+    Preset {
+        name: String,
+        top: f32,
+        column: usize,
+    },
+    /// HellLocker 1.9.4: Favourites / Recently used, which nothing can be dropped into.
+    Pinned {
+        top: f32,
+        height: f32,
+    },
 }
 
 pub struct AppUi {
@@ -144,6 +207,14 @@ pub struct AppUi {
     placed_at: Rc<Cell<Option<(i32, i32)>>>,
     /// When the last drag happened and it has not been saved yet.
     moved_at: Rc<Cell<Option<Instant>>>,
+    /// HellLocker 1.9.4: the presets applied last (newest first), and whether the
+    /// Favourites and Recently used sections are open.
+    recent: Vec<String>,
+    favorites_open: bool,
+    recent_open: bool,
+    /// HellLocker 1.9.5: the icons a preset can show, and the pictures read so far.
+    icons: crate::preset_icons::Catalog,
+    icon_cache: RefCell<std::collections::HashMap<String, Option<slint::Image>>>,
 }
 
 impl AppUi {
@@ -302,6 +373,13 @@ impl AppUi {
             let _ = folder_send.send(UiRequest::Folder(FolderRequest::Delete(id.to_string())));
         });
         let folder_send = send.clone();
+        window.on_request_folder_icon(move |id, icon| {
+            let _ = folder_send.send(UiRequest::Folder(FolderRequest::SetIcon {
+                id: id.to_string(),
+                icon: icon.to_string(),
+            }));
+        });
+        let folder_send = send.clone();
         window.on_request_open_folder(move |id, open| {
             let _ = folder_send.send(UiRequest::Folder(FolderRequest::Open {
                 id: id.to_string(),
@@ -309,11 +387,80 @@ impl AppUi {
             }));
         });
         let folder_send = send.clone();
-        window.on_request_move(move |preset, y| {
+        window.on_request_move(move |preset, column, y| {
             let _ = folder_send.send(UiRequest::Folder(FolderRequest::Move {
                 preset: preset.to_string(),
+                column,
                 y,
             }));
+        });
+        // HellLocker 1.9.6: the row the arrow keys move to in the two-column list.
+        let weak = window.as_weak();
+        window.on_neighbour(move |index, dx, dy| {
+            weak.upgrade().map_or(index, |window| {
+                let rows: Vec<(f32, i32)> = window
+                    .get_presets()
+                    .iter()
+                    .map(|row| (row.top, row.column))
+                    .collect();
+                neighbour(&rows, index, dx, dy)
+            })
+        });
+        let list_send = send.clone();
+        window.on_request_favorite(move |preset, favorite| {
+            let _ = list_send.send(UiRequest::SetFavorite {
+                preset: preset.to_string(),
+                favorite,
+            });
+        });
+        let list_send = send.clone();
+        window.on_request_notes(move |preset, notes| {
+            let _ = list_send.send(UiRequest::SetNotes {
+                preset: preset.to_string(),
+                notes: notes.to_string(),
+            });
+        });
+        let list_send = send.clone();
+        window.on_request_duplicate(move |preset| {
+            let _ = list_send.send(UiRequest::Duplicate(preset.to_string()));
+        });
+        let list_send = send.clone();
+        window.on_request_open_pinned(move |kind, open| {
+            let _ = list_send.send(UiRequest::OpenPinned {
+                recent: kind == 2,
+                open,
+            });
+        });
+        let list_send = send.clone();
+        window.on_request_compact(move |compact| {
+            let _ = list_send.send(UiRequest::SetCompact(compact));
+        });
+        let list_send = send.clone();
+        window.on_request_icon(move |preset, slot, id| {
+            let _ = list_send.send(UiRequest::SetIcon {
+                preset: preset.to_string(),
+                slot: slot.clamp(0, crate::preset_icons::SLOTS as i32 - 1) as usize,
+                id: id.to_string(),
+            });
+        });
+        let list_send = send.clone();
+        window.on_request_icon_picker(move || {
+            let _ = list_send.send(UiRequest::IconPicker);
+        });
+        let list_send = send.clone();
+        window.on_request_icon_filter(move |search, group| {
+            let _ = list_send.send(UiRequest::IconFilter {
+                search: search.to_string(),
+                group,
+            });
+        });
+        let list_send = send.clone();
+        window.on_request_icons_folder(move || {
+            let _ = list_send.send(UiRequest::OpenIconsFolder);
+        });
+        let list_send = send.clone();
+        window.on_request_stop(move || {
+            let _ = list_send.send(UiRequest::Stop);
         });
         let search_send = send.clone();
         window.on_request_search(move |text| {
@@ -339,6 +486,10 @@ impl AppUi {
             let _ = send.send(UiRequest::HidePanel);
             slint::CloseRequestResponse::KeepWindowShown
         });
+        let data_dir = presets
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .to_path_buf();
         let mut ui = Self {
             status: status::Status::new(presets)?,
             monitor,
@@ -356,6 +507,11 @@ impl AppUi {
             entries: Default::default(),
             view: (Faction::Any, Subfaction::Any, Mission::Any),
             search: String::new(),
+            recent: Vec::new(),
+            favorites_open: true,
+            recent_open: true,
+            icons: crate::preset_icons::Catalog::new(&data_dir),
+            icon_cache: Default::default(),
             preset_info: preset_info
                 .into_iter()
                 .map(|info| (info.name.clone(), info))
@@ -608,6 +764,7 @@ impl AppUi {
     /// Push the rows the filter shows to the panel, keeping `select` (or the current
     /// selection) selected when it is still listed.
     fn publish(&self, select: Option<&str>) {
+        self.publish_icon_room();
         let keep = select.map(str::to_owned).or_else(|| self.selected_name());
         let (faction, subfaction, mission) = self.view;
         let shows = |row: &PresetRow| {
@@ -617,10 +774,14 @@ impl AppUi {
                 && matches_search(&self.search, &row.label, &row.number)
         };
         // HellLocker: while filtering or searching, a folder only shows when it holds a
-        // matching preset, and then shows those presets even if it is closed.
+        // matching preset. HellLocker 1.9.6: only a search opens closed folders (and
+        // the pinned sections); with a faction or mission filter they open and close
+        // as usual.
         let filtering = (faction, subfaction, mission)
             != (Faction::Any, Subfaction::Any, Mission::Any)
             || !self.search.is_empty();
+        let searching = !self.search.is_empty();
+        let renaming = self.window.get_renaming_folder();
         let by_name: BTreeMap<&str, &PresetRow> = self
             .rows
             .iter()
@@ -630,6 +791,59 @@ impl AppUi {
         let mut folders = Vec::new();
         let mut entries = Vec::new();
         let mut top = 0.0_f32;
+        // HellLocker 1.9.4: Favourites and Recently used at the top. Their rows are
+        // copies (the presets stay in their folders too), and nothing drops into them.
+        let favorites: Vec<&str> = self
+            .layout
+            .folders
+            .iter()
+            .flat_map(|folder| folder.presets.iter())
+            .chain(self.layout.loose.iter())
+            .map(String::as_str)
+            .filter(|name| by_name.get(name).is_some_and(|row| row.favorite))
+            .collect();
+        let recent: Vec<&str> = self.recent.iter().map(String::as_str).collect();
+        for (kind, names, open) in [
+            (1, favorites, self.favorites_open),
+            (2, recent, self.recent_open),
+        ] {
+            let matching: Vec<&PresetRow> = names
+                .iter()
+                .filter_map(|name| by_name.get(name).copied())
+                .filter(|row| shows(row))
+                .collect();
+            if matching.is_empty() {
+                continue;
+            }
+            let open = open || searching;
+            folders.push(FolderRow {
+                id: format!("pinned-{kind}").into(),
+                // The panel shows the section's (translated) name.
+                name: "".into(),
+                count: matching.len().to_string().into(),
+                open,
+                top,
+                kind,
+                ..Default::default()
+            });
+            entries.push(ListEntry::Pinned {
+                top,
+                height: FOLDER_HEIGHT + ROW_GAP,
+            });
+            top += FOLDER_HEIGHT + ROW_GAP;
+            if open {
+                for (index, row) in matching.iter().enumerate() {
+                    let mut row = (*row).clone();
+                    row.pinned = true;
+                    row.column = (index % COLUMNS) as i32;
+                    row.top = top + (index / COLUMNS) as f32 * (ROW_HEIGHT + ROW_GAP);
+                    visible.push(row);
+                }
+                let height = bands(matching.len()) as f32 * (ROW_HEIGHT + ROW_GAP);
+                entries.push(ListEntry::Pinned { top, height });
+                top += height;
+            }
+        }
         for folder in &self.layout.folders {
             let matching: Vec<&PresetRow> = folder
                 .presets
@@ -637,22 +851,28 @@ impl AppUi {
                 .filter_map(|name| by_name.get(name.as_str()).copied())
                 .filter(|row| shows(row))
                 .collect();
-            if filtering && matching.is_empty() {
+            // The folder being named (a new one is empty) always shows.
+            if filtering && matching.is_empty() && renaming != folder.id.as_str() {
                 continue;
             }
-            let open = folder.open || filtering;
+            let open = folder.open || searching;
             let total = folder.presets.len();
             let count = if filtering && matching.len() < total {
                 format!("{} / {total}", matching.len())
             } else {
                 total.to_string()
             };
+            let picture = self.icon_picture(&folder.icon);
             folders.push(FolderRow {
                 id: folder.id.as_str().into(),
                 name: folder.name.as_str().into(),
                 count: count.into(),
                 open,
                 top,
+                kind: 0,
+                icon_id: folder.icon.as_str().into(),
+                has_icon: picture.is_some(),
+                icon: picture.unwrap_or_default(),
             });
             entries.push(ListEntry::Folder {
                 id: folder.id.clone(),
@@ -660,18 +880,31 @@ impl AppUi {
             });
             top += FOLDER_HEIGHT + ROW_GAP;
             if open {
-                for row in matching {
-                    place_row(&mut visible, &mut entries, row, true, &mut top);
-                }
+                place_rows(&mut visible, &mut entries, &matching, true, &mut top);
             }
         }
-        for name in &self.layout.loose {
-            if let Some(row) = by_name.get(name.as_str()).filter(|row| shows(row)) {
-                place_row(&mut visible, &mut entries, row, false, &mut top);
-            }
-        }
+        let loose: Vec<&PresetRow> = self
+            .layout
+            .loose
+            .iter()
+            .filter_map(|name| by_name.get(name.as_str()).copied())
+            .filter(|row| shows(row))
+            .collect();
+        place_rows(&mut visible, &mut entries, &loose, false, &mut top);
+        // The row already selected stays selected when it still holds the preset (it
+        // may be listed twice: in Favourites and in its folder).
+        let current = self.window.get_current_index();
         let index = keep
-            .and_then(|name| visible.iter().position(|row| row.name == name.as_str()))
+            .and_then(|name| {
+                usize::try_from(current)
+                    .ok()
+                    .filter(|&index| {
+                        visible
+                            .get(index)
+                            .is_some_and(|row| row.name == name.as_str())
+                    })
+                    .or_else(|| visible.iter().position(|row| row.name == name.as_str()))
+            })
             .map_or_else(
                 || {
                     self.window
@@ -691,6 +924,125 @@ impl AppUi {
     }
 
     /// HellLocker: the stored folders and order of the preset list.
+    /// HellLocker 1.9.4: Recently used, and whether it and Favourites are open.
+    pub fn set_pinned(&mut self, recent: Vec<String>, favorites_open: bool, recent_open: bool) {
+        self.recent = recent;
+        self.favorites_open = favorites_open;
+        self.recent_open = recent_open;
+        self.publish(None);
+    }
+
+    pub fn set_recent(&mut self, recent: Vec<String>) {
+        self.recent = recent;
+        self.publish(None);
+    }
+
+    pub fn recent(&self) -> &[String] {
+        &self.recent
+    }
+
+    pub fn set_pinned_open(&mut self, recent: bool, open: bool) {
+        if recent {
+            self.recent_open = open;
+        } else {
+            self.favorites_open = open;
+        }
+        self.publish(None);
+    }
+
+    pub fn set_favorite(&mut self, preset: &str, favorite: bool) {
+        if let Some(info) = self.preset_info.get_mut(preset) {
+            info.favorite = favorite;
+        }
+        if let Some(row) = self.rows.iter_mut().find(|row| row.name == preset) {
+            row.favorite = favorite;
+        }
+        self.publish(None);
+    }
+
+    pub fn set_notes(&mut self, preset: &str, notes: &str) {
+        if let Some(info) = self.preset_info.get_mut(preset) {
+            info.notes = notes.to_owned();
+        }
+        if let Some(row) = self.rows.iter_mut().find(|row| row.name == preset) {
+            row.notes = notes.into();
+        }
+        self.publish(None);
+    }
+
+    /// HellLocker 1.9.4: the shown title of a preset (its name, or "Preset N").
+    pub fn preset_title(&self, preset: &str) -> String {
+        match self.preset_info.get(preset) {
+            Some(info) if !info.label.is_empty() => info.label.clone(),
+            _ => format!("Preset {}", preset_number(preset)),
+        }
+    }
+
+    /// HellLocker 1.9.4: a copy of `from` was made as `to`; list it just below `from`,
+    /// select it and start renaming it. Returns the layout to save.
+    pub fn add_copy(&mut self, from: &str, to: String, label: String) -> Layout {
+        let Some(source) = self.preset_info.get(from).cloned() else {
+            return self.layout.clone();
+        };
+        let info = PresetInfo {
+            name: to.clone(),
+            label: label.clone(),
+            shortcut: String::new(),
+            favorite: false,
+            ..source
+        };
+        let mut row = self
+            .rows
+            .iter()
+            .find(|row| row.name == from)
+            .cloned()
+            .unwrap_or_default();
+        row.name = to.as_str().into();
+        row.number = preset_number(&to).into();
+        row.label = label.into();
+        row.shortcut = "".into();
+        row.favorite = false;
+        row.pinned = false;
+        self.rows.push(row);
+        self.preset_info.insert(to.clone(), info);
+        self.layout.add_preset(&to);
+        self.layout.move_preset(&to, &Drop::After(from.to_owned()));
+        self.publish(Some(&to));
+        self.window.invoke_focus_list();
+        // After the panel has handled the new selection, which ends any rename.
+        let weak = self.window.as_weak();
+        slint::Timer::single_shot(Duration::from_millis(80), move || {
+            if let Some(window) = weak.upgrade() {
+                window.invoke_begin_rename();
+            }
+        });
+        self.layout.clone()
+    }
+
+    /// HellLocker 1.9.4: fold the right side away (or back), keeping the panel's left
+    /// edge where it is, so the list stays put and the details slide in from the right.
+    pub fn set_compact(&mut self, compact: bool) -> Result<()> {
+        if self.window.get_compact() == compact {
+            return Ok(());
+        }
+        let at = self.outer_position();
+        self.window.set_compact(compact);
+        if self.is_panel_visible()
+            && let Some(at) = at
+        {
+            let size = slint::LogicalSize::new(
+                self.window.get_ideal_width(),
+                self.window.get_ideal_height(),
+            );
+            if let Some((size, placed)) = place_at(self.window.window(), at, size)? {
+                self.placed_at.set(placed);
+                self.window.set_available_width(size.width);
+                self.window.set_available_height(size.height);
+            }
+        }
+        Ok(())
+    }
+
     pub fn set_layout(&mut self, layout: Layout) {
         self.layout = layout;
         self.publish(None);
@@ -714,6 +1066,7 @@ impl AppUi {
                     && before != self.layout.folder(&id).map(|f| f.name.clone())
             }
             FolderRequest::Delete(id) => self.layout.delete_folder(&id),
+            FolderRequest::SetIcon { id, icon } => self.layout.set_icon(&id, &icon),
             FolderRequest::Open { id, open } => {
                 // Closing the folder that holds the selection selects the next row shown.
                 if !open
@@ -729,16 +1082,19 @@ impl AppUi {
                         })
                         .filter_map(|entry| match entry {
                             ListEntry::Preset { name, .. } => Some(name.clone()),
-                            ListEntry::Folder { .. } => None,
+                            ListEntry::Folder { .. } | ListEntry::Pinned { .. } => None,
                         })
                         .find(|name| self.layout.folder_of(name) != Some(id.as_str()));
                 }
                 self.layout.set_open(&id, open)
             }
-            FolderRequest::Move { preset, y } => {
-                let drop = drop_at(&self.entries.borrow(), y);
+            FolderRequest::Move { preset, column, y } => {
                 select = Some(preset.clone());
-                self.layout.move_preset(&preset, &drop)
+                // Nothing lands in Favourites or Recently used.
+                match drop_at(&self.entries.borrow(), column, y) {
+                    Some(drop) => self.layout.move_preset(&preset, &drop),
+                    None => false,
+                }
             }
         };
         self.publish(select.as_deref());
@@ -972,6 +1328,12 @@ impl AppUi {
         self.window.set_settings_error("".into());
     }
 
+    /// HellLocker 1.9.4: what Check my setup found.
+    pub fn set_setup_lines(&self, lines: Vec<SetupLine>) {
+        self.window
+            .set_setup_lines(Rc::new(VecModel::from(lines)).into());
+    }
+
     /// HellLocker: a problem shown in the Settings window.
     pub fn settings_problem(&self, message: &str) {
         self.window.set_settings_notice("".into());
@@ -1015,7 +1377,7 @@ impl AppUi {
                     stratagems: PreviewContent::Missing,
                     equipment: PreviewContent::Missing,
                 });
-                PresetRow {
+                let mut row = PresetRow {
                     number: preset_number(name).into(),
                     label: info.label.as_str().into(),
                     name: name.as_str().into(),
@@ -1025,8 +1387,12 @@ impl AppUi {
                     mission: info.mission.index(),
                     stratagems: section(preview.stratagems),
                     equipment: section(preview.equipment),
+                    favorite: info.favorite,
+                    notes: info.notes.as_str().into(),
                     ..Default::default()
-                }
+                };
+                self.fill_icons(&mut row, info);
+                row
             })
             .collect();
         rows.sort_by(|a, b| {
@@ -1047,46 +1413,117 @@ impl AppUi {
     }
 }
 
-/// HellLocker: adds one preset row to the shown list at `top`.
-fn place_row(
+/// HellLocker 1.9.6: how many lines `count` presets take in the two-column list.
+fn bands(count: usize) -> usize {
+    count.div_ceil(COLUMNS)
+}
+
+/// HellLocker: adds a section's preset rows to the shown list from `top`, two to a
+/// line, and moves `top` below them.
+fn place_rows(
     visible: &mut Vec<PresetRow>,
     entries: &mut Vec<ListEntry>,
-    row: &PresetRow,
+    rows: &[&PresetRow],
     in_folder: bool,
     top: &mut f32,
 ) {
-    let mut row = row.clone();
-    row.top = *top;
-    row.in_folder = in_folder;
-    entries.push(ListEntry::Preset {
-        name: row.name.to_string(),
-        top: *top,
-    });
-    visible.push(row);
-    *top += ROW_HEIGHT + ROW_GAP;
+    for (index, row) in rows.iter().enumerate() {
+        let mut row = (*row).clone();
+        let column = index % COLUMNS;
+        row.top = *top + (index / COLUMNS) as f32 * (ROW_HEIGHT + ROW_GAP);
+        row.column = column as i32;
+        row.in_folder = in_folder;
+        entries.push(ListEntry::Preset {
+            name: row.name.to_string(),
+            top: row.top,
+            column,
+        });
+        visible.push(row);
+    }
+    *top += bands(rows.len()) as f32 * (ROW_HEIGHT + ROW_GAP);
 }
 
 /// HellLocker: where a preset dropped at `y` lands: onto a folder header goes into the
-/// folder; onto a preset's upper or lower half goes before or after it; below the last
-/// row goes to the end, outside every folder.
-fn drop_at(entries: &[ListEntry], y: f32) -> Drop {
+/// folder; onto a preset's left or right half goes before or after it; beside the last
+/// preset of a line goes after it; below the last row goes to the end, outside every
+/// folder. `column` is how far across the list the drop is, in columns.
+fn drop_at(entries: &[ListEntry], column: f32, y: f32) -> Option<Drop> {
     let y = y.max(0.0);
+    let column = column.clamp(0.0, COLUMNS as f32 - 0.001);
+    let target = column.floor() as usize;
+    let mut line: Option<(String, usize)> = None;
     for entry in entries {
         match entry {
+            ListEntry::Pinned { top, height } if y < top + height => return None,
             ListEntry::Folder { id, top } if y < top + FOLDER_HEIGHT + ROW_GAP => {
-                return Drop::IntoFolder(id.clone());
+                return Some(Drop::IntoFolder(id.clone()));
             }
-            ListEntry::Preset { name, top } if y < top + ROW_HEIGHT + ROW_GAP => {
-                return if y < top + ROW_HEIGHT / 2.0 {
-                    Drop::Before(name.clone())
-                } else {
-                    Drop::After(name.clone())
-                };
+            ListEntry::Preset {
+                name,
+                top,
+                column: at,
+            } if y >= *top && y < top + ROW_HEIGHT + ROW_GAP => {
+                if *at == target {
+                    return Some(if column.fract() < 0.5 {
+                        Drop::Before(name.clone())
+                    } else {
+                        Drop::After(name.clone())
+                    });
+                }
+                line = Some((name.clone(), *at));
             }
+            ListEntry::Preset { top, .. } if y < *top => break,
             _ => {}
         }
     }
-    Drop::End
+    // Past the end of a short line: after its last preset.
+    if let Some((name, _)) = line {
+        return Some(Drop::After(name));
+    }
+    Some(Drop::End)
+}
+
+/// HellLocker 1.9.6: the row the arrow keys move to from `index` in the two-column
+/// list (rows given as (top, column)): `dx` steps along the line, `dy` to the next or
+/// previous line, staying in the same column when that line has one.
+fn neighbour(rows: &[(f32, i32)], index: i32, dx: i32, dy: i32) -> i32 {
+    let Some(&(top, column)) = usize::try_from(index).ok().and_then(|i| rows.get(i)) else {
+        return if rows.is_empty() {
+            0
+        } else {
+            index.clamp(0, rows.len() as i32 - 1)
+        };
+    };
+    if dx != 0 {
+        let next = index + dx.signum();
+        let same_line = usize::try_from(next)
+            .ok()
+            .and_then(|i| rows.get(i))
+            .is_some_and(|&(other, _)| other == top);
+        return if same_line { next } else { index };
+    }
+    if dy == 0 {
+        return index;
+    }
+    // The nearest line above or below.
+    let line = rows
+        .iter()
+        .map(|&(other, _)| other)
+        .filter(|&other| if dy > 0 { other > top } else { other < top })
+        .fold(None, |best: Option<f32>, other| match best {
+            Some(best) if (dy > 0 && best <= other) || (dy < 0 && best >= other) => Some(best),
+            _ => Some(other),
+        });
+    let Some(line) = line else {
+        return index;
+    };
+    let in_line = |wanted: i32| {
+        rows.iter()
+            .position(|&(other, at)| other == line && at == wanted)
+    };
+    in_line(column)
+        .or_else(|| (0..column).rev().find_map(in_line))
+        .map_or(index, |found| found as i32)
 }
 
 /// HellLocker: whether a preset matches the (lower-case) search: its name, or for an
@@ -1176,6 +1613,7 @@ fn section(content: PreviewContent) -> PreviewSection {
                             picture: image(&item.image),
                             has_icon: item.picture.is_some(),
                             icon: item.picture.as_ref().map(image).unwrap_or_default(),
+                            name: item.name.as_deref().unwrap_or_default().into(),
                         }
                     })
                     .collect::<Vec<_>>(),
@@ -1391,44 +1829,96 @@ mod search_tests {
 
 #[cfg(test)]
 mod drop_tests {
-    use super::{Drop, FOLDER_HEIGHT, ListEntry, ROW_GAP, ROW_HEIGHT, drop_at};
+    use super::{Drop, FOLDER_HEIGHT, ListEntry, ROW_GAP, ROW_HEIGHT, drop_at, neighbour};
 
     #[test]
     fn drops_land_on_folders_rows_and_the_end() {
-        // A folder header, one preset inside it, then a preset in no folder.
+        // A folder header, then a line of two presets in it, then one in no folder.
         let folder = FOLDER_HEIGHT + ROW_GAP;
         let row = ROW_HEIGHT + ROW_GAP;
+        let preset = |name: &str, top: f32, column: usize| ListEntry::Preset {
+            name: name.into(),
+            top,
+            column,
+        };
         let entries = vec![
             ListEntry::Folder {
                 id: "folder_1".into(),
                 top: 0.0,
             },
+            preset("preset_1", folder, 0),
+            preset("preset_2", folder, 1),
+            preset("preset_3", folder + row, 0),
+        ];
+        let into = Some(Drop::IntoFolder("folder_1".into()));
+        assert_eq!(drop_at(&entries, 0.5, -20.0), into);
+        assert_eq!(drop_at(&entries, 1.5, 10.0), into);
+        let at = folder + 5.0;
+        assert_eq!(
+            drop_at(&entries, 0.2, at),
+            Some(Drop::Before("preset_1".into()))
+        );
+        assert_eq!(
+            drop_at(&entries, 0.8, at),
+            Some(Drop::After("preset_1".into()))
+        );
+        assert_eq!(
+            drop_at(&entries, 1.2, at),
+            Some(Drop::Before("preset_2".into()))
+        );
+        assert_eq!(
+            drop_at(&entries, 9.0, at),
+            Some(Drop::After("preset_2".into()))
+        );
+        // Beside the last preset, on a line it has to itself.
+        assert_eq!(
+            drop_at(&entries, 1.5, folder + row + 10.0),
+            Some(Drop::After("preset_3".into()))
+        );
+        assert_eq!(
+            drop_at(&entries, 0.5, folder + 2.0 * row + 10.0),
+            Some(Drop::End)
+        );
+    }
+
+    #[test]
+    fn nothing_drops_into_favourites_or_recently_used() {
+        let header = FOLDER_HEIGHT + ROW_GAP;
+        let row = ROW_HEIGHT + ROW_GAP;
+        let entries = vec![
+            ListEntry::Pinned {
+                top: 0.0,
+                height: header,
+            },
+            ListEntry::Pinned {
+                top: header,
+                height: row,
+            },
             ListEntry::Preset {
                 name: "preset_1".into(),
-                top: folder,
-            },
-            ListEntry::Preset {
-                name: "preset_2".into(),
-                top: folder + row,
+                top: header + row,
+                column: 0,
             },
         ];
+        assert_eq!(drop_at(&entries, 0.5, 5.0), None);
+        assert_eq!(drop_at(&entries, 1.5, header + 10.0), None);
         assert_eq!(
-            drop_at(&entries, -20.0),
-            Drop::IntoFolder("folder_1".into())
+            drop_at(&entries, 0.2, header + row + 5.0),
+            Some(Drop::Before("preset_1".into()))
         );
-        assert_eq!(drop_at(&entries, 10.0), Drop::IntoFolder("folder_1".into()));
-        assert_eq!(
-            drop_at(&entries, folder + 5.0),
-            Drop::Before("preset_1".into())
-        );
-        assert_eq!(
-            drop_at(&entries, folder + 30.0),
-            Drop::After("preset_1".into())
-        );
-        assert_eq!(
-            drop_at(&entries, folder + row + 30.0),
-            Drop::After("preset_2".into())
-        );
-        assert_eq!(drop_at(&entries, folder + 2.0 * row + 10.0), Drop::End);
+    }
+
+    #[test]
+    fn arrow_keys_move_through_the_columns() {
+        // Two full lines, then a line with one preset.
+        let rows = [(0.0, 0), (0.0, 1), (40.0, 0), (40.0, 1), (80.0, 0)];
+        assert_eq!(neighbour(&rows, 1, 0, 1), 3);
+        assert_eq!(neighbour(&rows, 3, 0, 1), 4);
+        assert_eq!(neighbour(&rows, 4, 0, -1), 2);
+        assert_eq!(neighbour(&rows, 0, 0, -1), 0);
+        assert_eq!(neighbour(&rows, 0, 1, 0), 1);
+        assert_eq!(neighbour(&rows, 1, 1, 0), 1);
+        assert_eq!(neighbour(&rows, 2, -1, 0), 2);
+        assert_eq!(neighbour(&[], 0, 0, 1), 0);
     }
 }

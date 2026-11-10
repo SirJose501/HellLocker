@@ -8,6 +8,13 @@ export global UiText {
     public pure function section-message(section: PreviewSection) -> string {
         return section.saved ? section.error : @tr("Not saved");
     }
+    // HellLocker 1.9.5: an icon's name in the picker (see IconChoice).
+    public pure function icon-name(group: int, tag: int, name: string) -> string {
+        if (group == 1 && tag > 0) { return UiText.faction-name(tag); }
+        if (group == 2 && tag > 0) { return UiText.subfaction-name(tag); }
+        if (group == 3 && tag > 0) { return UiText.mission-name(tag); }
+        return name;
+    }
     // HellLocker: the order matches crate::context::{Faction, Mission}::ALL.
     public pure function faction-name(index: int) -> string {
         if (index == 1) { return @tr("Terminids"); }

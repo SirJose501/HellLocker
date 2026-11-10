@@ -55,6 +55,11 @@ pub struct PresetsConfig {
     pub folders: Vec<crate::folders::PresetFolder>,
     /// HellLocker: presets in no folder, in list order (others go last, by number).
     pub order: Vec<String>,
+    /// HellLocker 1.9.4: the presets applied last, newest first.
+    pub recent: Vec<String>,
+    /// HellLocker 1.9.4: whether Favourites and Recently used are open in the list.
+    pub favorites_open: bool,
+    pub recent_open: bool,
 }
 
 impl PresetsConfig {
@@ -92,6 +97,9 @@ impl Default for PresetsConfig {
             cape: true,
             folders: Vec::new(),
             order: Vec::new(),
+            recent: Vec::new(),
+            favorites_open: true,
+            recent_open: true,
         }
     }
 }
@@ -107,7 +115,19 @@ pub struct PresetSlot {
     pub subfaction: Subfaction,
     /// HellLocker: the mission type this preset is for ("any" = general purpose).
     pub mission: Mission,
+    /// HellLocker 1.9.4: starred; listed in Favourites at the top.
+    pub favorite: bool,
+    /// HellLocker 1.9.4: the player's notes for this preset.
+    pub notes: String,
+    /// HellLocker 1.9.5: the icons shown beside the preset in the list (see
+    /// crate::preset_icons); "" leaves a slot at its default.
+    pub icons: Vec<String>,
 }
+
+/// HellLocker 1.9.4: longest notes kept for one preset, in characters.
+pub const NOTES_MAX: usize = 2000;
+/// HellLocker 1.9.4: how many presets Recently used lists.
+pub const RECENT_MAX: usize = 5;
 
 impl PresetSlot {
     fn to_item(&self) -> toml_edit::Item {
@@ -117,6 +137,16 @@ impl PresetSlot {
         table.insert("faction", toml_edit::value(self.faction.key()));
         table.insert("subfaction", toml_edit::value(self.subfaction.key()));
         table.insert("mission", toml_edit::value(self.mission.key()));
+        if self.favorite {
+            table.insert("favorite", toml_edit::value(true));
+        }
+        if !self.notes.is_empty() {
+            table.insert("notes", toml_edit::value(self.notes.as_str()));
+        }
+        if self.icons.iter().any(|icon| !icon.is_empty()) {
+            let icons: toml_edit::Array = self.icons.iter().map(String::as_str).collect();
+            table.insert("icons", toml_edit::value(icons));
+        }
         toml_edit::Item::Table(table)
     }
 }
@@ -280,6 +310,8 @@ pub struct UiSettings {
     /// HellLocker: where the panel was last dragged to (desktop pixels), or empty for
     /// the top right of the game's display.
     pub panel_position: Vec<i32>,
+    /// HellLocker 1.9.4: the right side folded away, showing only the preset list.
+    pub compact: bool,
 }
 
 /// HellLocker: where the status pop-ups show.
@@ -347,6 +379,7 @@ impl Default for UiSettings {
             status_popup: StatusPopup::TopRight,
             save_sound: true,
             panel_position: Vec::new(),
+            compact: false,
         }
     }
 }
@@ -446,6 +479,9 @@ pub fn save_layout(config_path: &Path, layout: &crate::folders::Layout) -> Resul
             table.insert("id", folder.id.as_str().into());
             table.insert("name", folder.name.as_str().into());
             table.insert("open", folder.open.into());
+            if !folder.icon.is_empty() {
+                table.insert("icon", folder.icon.as_str().into());
+            }
             table.insert(
                 "presets",
                 folder
@@ -573,10 +609,10 @@ fn write_slot_field(
     document: &mut toml_edit::DocumentMut,
     preset: &str,
     key: &str,
-    text: &str,
+    value: impl Into<toml_edit::Value>,
 ) -> Result<()> {
     let table = slot_table(document, preset)?;
-    let mut value = toml_edit::Value::from(text);
+    let mut value = value.into();
     if let Some(previous) = table.get(key).and_then(toml_edit::Item::as_value) {
         *value.decor_mut() = previous.decor().clone();
     }
@@ -607,6 +643,136 @@ pub fn add_preset(
         slots.insert(preset, slot.to_item());
         Ok(())
     })
+}
+
+/// HellLocker 1.9.4: a copy of `from` under the new name `to`: same tags, notes and
+/// label (with " (copy)"), no shortcut, not starred.
+pub fn duplicate_preset(config_path: &Path, from: &str, to: &str, label: &str) -> Result<()> {
+    validate_preset_label(to, label)?;
+    edit_config(config_path, |document| {
+        let source = slots_table(document)?
+            .get(from)
+            .and_then(toml_edit::Item::as_table_like)
+            .map(|table| {
+                let text = |key: &str| {
+                    table
+                        .get(key)
+                        .and_then(toml_edit::Item::as_str)
+                        .unwrap_or_default()
+                        .to_owned()
+                };
+                (
+                    text("faction"),
+                    text("subfaction"),
+                    text("mission"),
+                    text("notes"),
+                    table.get("icons").cloned(),
+                )
+            })
+            .with_context(|| format!("preset not found: {from}"))?;
+        let slots = slots_table(document)?;
+        ensure!(!slots.contains_key(to), "preset already exists: {to}");
+        let mut table = toml_edit::Table::new();
+        table.insert("label", toml_edit::value(label));
+        table.insert("shortcut", toml_edit::value(""));
+        for (key, value) in [
+            ("faction", &source.0),
+            ("subfaction", &source.1),
+            ("mission", &source.2),
+        ] {
+            table.insert(
+                key,
+                toml_edit::value(if value.is_empty() {
+                    "any"
+                } else {
+                    value.as_str()
+                }),
+            );
+        }
+        if !source.3.is_empty() {
+            table.insert("notes", toml_edit::value(source.3.as_str()));
+        }
+        if let Some(icons) = source.4 {
+            table.insert("icons", icons);
+        }
+        slots.insert(to, toml_edit::Item::Table(table));
+        Ok(())
+    })
+}
+
+/// HellLocker 1.9.4: star or unstar a preset.
+pub fn save_preset_favorite(config_path: &Path, preset: &str, favorite: bool) -> Result<()> {
+    validate_preset_label(preset, "")?;
+    edit_config(config_path, |document| {
+        write_slot_field(document, preset, "favorite", favorite)
+    })
+}
+
+/// HellLocker 1.9.4: a preset's notes (trimmed, at most NOTES_MAX characters).
+pub fn save_preset_notes(config_path: &Path, preset: &str, notes: &str) -> Result<String> {
+    validate_preset_label(preset, "")?;
+    let notes: String = notes.trim().chars().take(NOTES_MAX).collect();
+    edit_config(config_path, |document| {
+        write_slot_field(document, preset, "notes", notes.as_str())
+    })?;
+    Ok(notes)
+}
+
+/// HellLocker 1.9.5: a preset's icons ("" = the default for that slot).
+pub fn save_preset_icons(
+    config_path: &Path,
+    preset: &str,
+    icons: &[String; crate::preset_icons::SLOTS],
+) -> Result<()> {
+    validate_preset_label(preset, "")?;
+    let mut icons: Vec<&str> = icons.iter().map(String::as_str).collect();
+    while icons.last().is_some_and(|icon| icon.is_empty()) {
+        icons.pop();
+    }
+    edit_config(config_path, |document| {
+        if icons.is_empty() {
+            slot_table(document, preset)?.remove("icons");
+            Ok(())
+        } else {
+            let value: toml_edit::Array = icons.iter().copied().collect();
+            write_slot_field(document, preset, "icons", value)
+        }
+    })
+}
+
+/// HellLocker 1.9.4: the Recently used list, newest first.
+pub fn save_recent(config_path: &Path, recent: &[String]) -> Result<()> {
+    let value: toml_edit::Array = recent.iter().map(String::as_str).collect();
+    edit_config(config_path, |document| {
+        write_setting(document, "presets", "recent", value)
+    })
+}
+
+/// HellLocker 1.9.4: whether Favourites (kind 1) or Recently used (kind 2) is open.
+pub fn save_pinned_open(config_path: &Path, recent: bool, open: bool) -> Result<()> {
+    let key = if recent {
+        "recent_open"
+    } else {
+        "favorites_open"
+    };
+    edit_config(config_path, |document| {
+        write_setting(document, "presets", key, open)
+    })
+}
+
+/// HellLocker 1.9.4: the right side folded away.
+pub fn save_compact(config_path: &Path, compact: bool) -> Result<()> {
+    edit_config(config_path, |document| {
+        write_setting(document, "ui", "compact", compact)
+    })
+}
+
+/// HellLocker 1.9.4: `preset` was just applied: first in the list, at most RECENT_MAX.
+pub fn push_recent(recent: &[String], preset: &str) -> Vec<String> {
+    std::iter::once(preset.to_owned())
+        .chain(recent.iter().filter(|name| *name != preset).cloned())
+        .take(RECENT_MAX)
+        .collect()
 }
 
 pub fn remove_preset(config_path: &Path, preset: &str) -> Result<()> {
@@ -698,6 +864,8 @@ mod diverkit_tests {
         let id = layout.add_folder("Bot \"hunting\"");
         layout.move_preset("preset_3", &crate::folders::Drop::IntoFolder(id.clone()));
         layout.set_open(&id, false);
+        assert!(layout.set_icon(&id, "boosters:dead-sprint"));
+        assert!(!layout.set_icon(&id, "boosters:dead-sprint"));
         save_layout(&path, &layout).unwrap();
         let (config, _) = load_app_config(&path).unwrap();
         let reloaded = crate::folders::Layout::new(
@@ -707,6 +875,7 @@ mod diverkit_tests {
         );
         assert_eq!(reloaded, layout);
         assert_eq!(reloaded.folders[0].name, "Bot \"hunting\"");
+        assert_eq!(reloaded.folders[0].icon, "boosters:dead-sprint");
         // Saving again rewrites in place rather than adding keys.
         save_layout(&path, &reloaded).unwrap();
         let text = fs::read_to_string(&path).unwrap();
@@ -778,6 +947,22 @@ mod diverkit_tests {
             (Faction::Automatons, Mission::Eradicate)
         );
         assert_eq!(config.ui.view_subfaction, Subfaction::CyborgLegion);
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn icons_are_saved_copied_and_cleared() {
+        let path = temp_config("icons");
+        let icons = ["".to_string(), "stratagems:railgun".to_string()];
+        save_preset_icons(&path, "preset_3", &icons).unwrap();
+        duplicate_preset(&path, "preset_3", "preset_9", "Copy").unwrap();
+        let (config, _) = load_app_config(&path).unwrap();
+        assert_eq!(config.presets.slots["preset_3"].icons, icons);
+        assert_eq!(config.presets.slots["preset_9"].icons, icons);
+        save_preset_icons(&path, "preset_3", &Default::default()).unwrap();
+        let (config, _) = load_app_config(&path).unwrap();
+        assert!(config.presets.slots["preset_3"].icons.is_empty());
+        assert!(!fs::read_to_string(&path).unwrap().contains("icons = []"));
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 

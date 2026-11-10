@@ -34,6 +34,13 @@ pub struct WindowIdentity {
     process_id: u32,
 }
 
+impl WindowIdentity {
+    /// HellLocker 1.9.4: the native window handle (for the setup check).
+    pub(crate) fn handle(&self) -> isize {
+        self.handle
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ClientCrop {
     pub x: u32,

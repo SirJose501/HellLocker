@@ -1,10 +1,10 @@
 //! HellLocker: back up and restore presets and settings (Settings > Help).
 //!
-//! A backup is a zip of `config.toml`, `presets.json` and the `local_templates`
-//! pictures. Restoring checks the zip, unpacks it next to the live data, and swaps
-//! it in the next time HellLocker starts (it restarts itself right away), so the
-//! running app can never write over the restored files. The data being replaced is
-//! saved as `backups/before-restore.zip` first.
+//! A backup is a zip of `config.toml`, `presets.json`, the `local_templates`
+//! pictures and the player's own preset `icons`. Restoring checks the zip, unpacks it
+//! next to the live data, and swaps it in the next time HellLocker starts (it restarts
+//! itself right away), so the running app can never write over the restored files.
+//! The data being replaced is saved as `backups/before-restore.zip` first.
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -16,6 +16,8 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 const CONFIG: &str = "config.toml";
 const PRESETS: &str = "presets.json";
 const TEMPLATES: &str = "local_templates";
+/// HellLocker 1.9.5: the player's own preset icons.
+const ICONS: &str = crate::preset_icons::CUSTOM_DIR;
 /// Where a checked restore waits for the next start.
 const PENDING: &str = "restore.pending";
 /// The copy of the data a restore replaced.
@@ -82,6 +84,7 @@ pub fn create(data: &Path, target: &Path) -> Result<usize> {
         }
         let mut files = Vec::new();
         collect_files(&data.join(TEMPLATES), &mut files)?;
+        collect_files(&data.join(ICONS), &mut files)?;
         files.sort();
         for path in files {
             let relative = path.strip_prefix(data)?;
@@ -140,7 +143,7 @@ fn entry_path(name: &str) -> Option<PathBuf> {
     let first = parts.next()?.as_os_str().to_str()?;
     match first {
         CONFIG | PRESETS if parts.next().is_none() => Some(path.to_path_buf()),
-        TEMPLATES if parts.next().is_some() => Some(path.to_path_buf()),
+        TEMPLATES | ICONS if parts.next().is_some() => Some(path.to_path_buf()),
         _ => None,
     }
 }
@@ -222,7 +225,12 @@ pub fn apply_pending(data: &Path) -> Result<bool> {
     if templates.exists() {
         fs::remove_dir_all(&templates)?;
     }
-    for name in [CONFIG, PRESETS, TEMPLATES] {
+    // Icons are only replaced by a backup that has some (older backups have none).
+    let icons = data.join(ICONS);
+    if staging.join(ICONS).exists() && icons.exists() {
+        fs::remove_dir_all(&icons)?;
+    }
+    for name in [CONFIG, PRESETS, TEMPLATES, ICONS] {
         let from = staging.join(name);
         if from.exists() {
             fs::rename(&from, data.join(name))
@@ -262,6 +270,7 @@ mod tests {
         assert!(entry_path("config.toml").is_some());
         assert!(entry_path("local_templates/preset_1/a.png").is_some());
         assert!(entry_path("local_templates").is_none());
+        assert!(entry_path("icons/mine.png").is_some());
         assert!(entry_path("../config.toml").is_none());
         assert!(entry_path("app.log").is_none());
         assert!(entry_path("config.toml/x").is_none());
@@ -275,8 +284,10 @@ mod tests {
         fs::create_dir_all(data.join("local_templates/preset_1")).unwrap();
         fs::write(data.join("local_templates/preset_1/pic.png"), [1, 2, 3]).unwrap();
         fs::write(data.join("app.log"), "log").unwrap();
+        fs::create_dir_all(data.join(ICONS)).unwrap();
+        fs::write(data.join(ICONS).join("mine.png"), [4]).unwrap();
         let zip = data.join("backup.zip");
-        assert_eq!(create(&data, &zip).unwrap(), 3);
+        assert_eq!(create(&data, &zip).unwrap(), 4);
 
         // Change everything, then restore.
         fs::write(data.join(PRESETS), "{\"b\":2}").unwrap();
@@ -291,6 +302,7 @@ mod tests {
             [1, 2, 3]
         );
         assert!(!data.join("local_templates/preset_1/new.png").exists());
+        assert_eq!(read_all(&data.join(ICONS).join("mine.png")).unwrap(), [4]);
         assert!(data.join(BACKUPS).join(BEFORE_RESTORE).is_file());
         assert_eq!(fs::read_to_string(data.join("app.log")).unwrap(), "log");
         assert!(!apply_pending(&data).unwrap());

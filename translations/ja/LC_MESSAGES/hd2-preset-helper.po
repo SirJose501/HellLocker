@@ -235,3 +235,366 @@ msgstr "前回のエラー表示を閉じる"
 # Tray.
 msgid "Exit"
 msgstr "終了"
+
+msgid "Favourites"
+msgstr "お気に入り"
+
+msgid "Recently used"
+msgstr "最近使用"
+
+msgid "Folder name"
+msgstr "フォルダー名"
+
+msgid "Rename folder"
+msgstr "フォルダー名を変更"
+
+msgid "Delete folder (its presets are kept)"
+msgstr "フォルダーを削除（中のプリセットは残ります）"
+
+msgid "Scan equipment"
+msgstr "装備をスキャン"
+
+msgid "Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates."
+msgstr "各装備リストを一度ずつ巡回し、各アイテムの画像を保存して、プリセットの保存を速くします。装備選択ページで開始し、数分間ゲームを操作しないでください。ゲームのアップデート後にもう一度実行してください。"
+
+msgid "Show / hide"
+msgstr "表示 / 非表示"
+
+msgid "Global shortcut: shows or hides the panel from anywhere, also in game. Change it in Settings."
+msgstr "グローバルショートカット：ゲーム中を含め、どこからでもパネルの表示と非表示を切り替えます。設定で変更できます。"
+
+msgid "All factions"
+msgstr "すべての勢力"
+
+msgid "Pick a faction first"
+msgstr "先に勢力を選択"
+
+msgid "All sub-factions"
+msgstr "すべてのサブ勢力"
+
+msgid "All missions"
+msgstr "すべての任務"
+
+msgid "Search presets"
+msgstr "プリセットを検索"
+
+msgid "Clear search"
+msgstr "検索をクリア"
+
+msgid "+ New folder"
+msgstr "+ 新規フォルダー"
+
+msgid "Favourite"
+msgstr "お気に入り"
+
+msgid "Remove from Favourites"
+msgstr "お気に入りから外す"
+
+msgid "Add to Favourites"
+msgstr "お気に入りに追加"
+
+msgid "↑↓ / W S  ·  A / D faction  ·  Q / E mission"
+msgstr "↑↓ / W S  ·  A / D 勢力  ·  Q / E 任務"
+
+msgid "Keys while the panel has focus: select a preset, change the faction filter, change the mission filter"
+msgstr "パネルにフォーカスがあるときのキー：プリセットを選択、勢力フィルターを変更、任務フィルターを変更"
+
+msgid "Show the preset details"
+msgstr "プリセットの詳細を表示"
+
+msgid "Hide the preset details"
+msgstr "プリセットの詳細を隠す"
+
+msgid "Duplicate preset (Ctrl+D)"
+msgstr "プリセットを複製 (Ctrl+D)"
+
+msgid "Faction"
+msgstr "勢力"
+
+msgid "Sub-faction"
+msgstr "サブ勢力"
+
+msgid "Mission"
+msgstr "任務"
+
+msgid "Unticked: left as they are when saving and applying"
+msgstr "チェックなし：保存・適用時にそのまま残します"
+
+msgid "No presets match the search."
+msgstr "検索に一致するプリセットはありません。"
+
+msgid "No presets for this filter yet. Use + New preset to make one."
+msgstr "このフィルターのプリセットはまだありません。+ 新規プリセットで作成してください。"
+
+msgid "Notes"
+msgstr "メモ"
+
+msgid "Saved when you click away"
+msgstr "他の場所をクリックすると保存"
+
+msgid "Add notes: what this loadout is for, what to bring, who runs what…"
+msgstr "メモを追加：この装備の用途、持っていくもの、誰が何を担当するか…"
+
+msgid "Stop (Backspace)"
+msgstr "停止 (Backspace)"
+
+msgid "SETTINGS"
+msgstr "設定"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "Gameplay"
+msgstr "ゲームプレイ"
+
+msgid "Panel"
+msgstr "パネル"
+
+msgid "Help"
+msgstr "ヘルプ"
+
+msgid "APPLYING PRESETS"
+msgstr "プリセットの適用"
+
+msgid "Only when all four Stratagem slots start empty."
+msgstr "4つの戦略支援スロットが最初からすべて空のときのみ。"
+
+msgid "Automatic Readying"
+msgstr "自動準備完了"
+
+msgid "Ready up after a preset with a Booster is applied."
+msgstr "ブースター付きのプリセットを適用した後、準備完了にします。"
+
+msgid "Patient mode"
+msgstr "待機延長モード"
+
+msgid "Waits up to three times longer for the game. Turn on if menus open slowly or the game hitches and presets stop partway."
+msgstr "ゲームを最大3倍長く待ちます。メニューが開くのが遅い、ゲームがカクついてプリセットが途中で止まる場合にオンにしてください。"
+
+msgid "SAVING PRESETS"
+msgstr "プリセットの保存"
+
+msgid "Booster Fallbacking"
+msgstr "予備ブースター"
+
+msgid "If the saved Booster is taken, wait for you to pick another and save it as the fallback."
+msgstr "保存したブースターが使用中の場合、別のブースターを選ぶのを待って予備として保存します。"
+
+msgid "Sound when saved"
+msgstr "保存時に音を鳴らす"
+
+msgid "A short Windows chime when a preset has been saved."
+msgstr "プリセットを保存したときに短いWindowsの通知音を鳴らします。"
+
+msgid "Reset this tab"
+msgstr "このタブをリセット"
+
+msgid "BEHAVIOUR"
+msgstr "動作"
+
+msgid "Keep the panel open"
+msgstr "パネルを開いたままにする"
+
+msgid "Stays up when you click the game, so it can sit on another monitor."
+msgstr "ゲームをクリックしても表示されたままなので、別のモニターに置いておけます。"
+
+msgid "Start with Windows"
+msgstr "Windowsと同時に起動"
+
+msgid "Starts HellLocker in the tray when you sign in."
+msgstr "サインイン時にHellLockerを通知領域で起動します。"
+
+msgid "Where the panel and the status pop-up appear."
+msgstr "パネルとステータス表示を表示する場所。"
+
+msgid "Status pop-up"
+msgstr "ステータス表示"
+
+msgid "The small notice that shows progress while the panel is hidden."
+msgstr "パネルが非表示のときに進行状況を示す小さな通知。"
+
+msgid "Top right"
+msgstr "右上"
+
+msgid "Top left"
+msgstr "左上"
+
+msgid "Off"
+msgstr "オフ"
+
+msgid "LOOK"
+msgstr "外観"
+
+msgid "Panel size"
+msgstr "パネルのサイズ"
+
+msgid "On top of Windows display scaling. Applies after a restart."
+msgstr "Windowsの表示スケールに加えて適用されます。再起動後に反映されます。"
+
+msgid "Background"
+msgstr "背景"
+
+msgid "How solid the background art is. Shows as you drag."
+msgstr "背景画像の不透明度。ドラッグ中に反映されます。"
+
+msgid "Follow system, or pick one."
+msgstr "システムに合わせるか、言語を選択します。"
+
+msgid "BEFORE YOU PLAY"
+msgstr "プレイ前に"
+
+msgid "Check my setup"
+msgstr "セットアップを確認"
+
+msgid "Looks at the game's window and resolution, HDR, overlays and the equipment scan, and says what to change. Nothing is clicked."
+msgstr "ゲームのウィンドウと解像度、HDR、オーバーレイ、装備スキャンを確認し、変更すべき点を表示します。クリック操作は行いません。"
+
+msgid "Check again"
+msgstr "もう一度確認"
+
+msgid "Check"
+msgstr "確認"
+
+msgid "REPORT A PROBLEM"
+msgstr "問題を報告"
+
+msgid "Report a bug"
+msgstr "バグを報告"
+
+msgid "Opens the Bugs tab on the HellLocker Nexus page. Say what you did, and attach app.log and last_failure.zip from the data folder."
+msgstr "NexusのHellLockerページのBugsタブを開きます。行った操作を書き、データフォルダーのapp.logとlast_failure.zipを添付してください。"
+
+msgid "Open Bugs tab"
+msgstr "Bugsタブを開く"
+
+msgid "Data folder"
+msgstr "データフォルダー"
+
+msgid "Your presets, settings, app.log and last_failure.zip."
+msgstr "プリセット、設定、app.log、last_failure.zip。"
+
+msgid "Open folder"
+msgstr "フォルダーを開く"
+
+msgid "System info"
+msgstr "システム情報"
+
+msgid "Copies your HellLocker version, Windows version, displays and game display settings, to paste into a bug report. No names or file paths."
+msgstr "HellLockerのバージョン、Windowsのバージョン、ディスプレイ、ゲームの表示設定をコピーします。バグ報告に貼り付けてください。名前やファイルパスは含みません。"
+
+msgid "YOUR PRESETS"
+msgstr "あなたのプリセット"
+
+msgid "Back up presets"
+msgstr "プリセットをバックアップ"
+
+msgid "Saves every preset, its pictures and your settings into one zip file."
+msgstr "すべてのプリセット、その画像、設定を1つのzipファイルに保存します。"
+
+msgid "Save backup…"
+msgstr "バックアップを保存…"
+
+msgid "Restore from a backup"
+msgstr "バックアップから復元"
+
+msgid "Replaces your presets and settings with a backup, then restarts HellLocker. What you have now is kept in backups\\before-restore.zip."
+msgstr "プリセットと設定をバックアップで置き換え、HellLockerを再起動します。現在の内容はbackups\\before-restore.zipに保存されます。"
+
+msgid "Restore…"
+msgstr "復元…"
+
+msgid "Shortcuts pause while you record one."
+msgstr "ショートカットの記録中は他のショートカットが一時停止します。"
+
+msgid "These act right away; Save is only for settings."
+msgstr "これらはすぐに実行されます。保存は設定のみに適用されます。"
+
+msgid "Changes apply when you press Save."
+msgstr "保存を押すと変更が適用されます。"
+
+msgid "Also used by another shortcut"
+msgstr "別のショートカットでも使われています"
+
+msgid "Esc cancels"
+msgstr "Escでキャンセル"
+
+msgid "Click a shortcut, then press your keys. The panel shortcut works anywhere; preset shortcuts work in the game or panel."
+msgstr "ショートカットをクリックしてキーを押してください。パネルのショートカットはどこでも、プリセットのショートカットはゲーム内またはパネルで使えます。"
+
+msgid "Num0–Num9 are keypad keys: keep Num Lock on and avoid Shift with them."
+msgstr "Num0〜Num9はテンキーのキーです。Num Lockをオンのままにし、Shiftと組み合わせないでください。"
+
+msgid "to stop"
+msgstr "で停止"
+
+msgid "Icons"
+msgstr "アイコン"
+
+msgid "First icon"
+msgstr "1つ目のアイコン"
+
+msgid "Second icon"
+msgstr "2つ目のアイコン"
+
+msgid "First icon: shown beside the preset's name. Click to change it."
+msgstr "1つ目のアイコン：プリセット名の横に表示されます。クリックして変更します。"
+
+msgid "Second icon: shown beside the first. Click to pick one."
+msgstr "2つ目のアイコン：1つ目の横に表示されます。クリックして選びます。"
+
+msgid "Search icons"
+msgstr "アイコンを検索"
+
+msgid "All"
+msgstr "すべて"
+
+msgid "Factions"
+msgstr "勢力"
+
+msgid "Sub-factions"
+msgstr "サブ勢力"
+
+msgid "Missions"
+msgstr "任務"
+
+msgid "Stratagems"
+msgstr "戦略支援"
+
+msgid "Boosters"
+msgstr "ブースター"
+
+msgid "Other"
+msgstr "その他"
+
+msgid "Your icons"
+msgstr "自分のアイコン"
+
+msgid "Default"
+msgstr "既定"
+
+msgid "None"
+msgstr "なし"
+
+msgid "The faction's emblem (the sub-faction's when it has one)"
+msgstr "勢力のエンブレム（サブ勢力を選んでいればそのエンブレム）"
+
+msgid "No second icon"
+msgstr "2つ目のアイコンなし"
+
+msgid "No icons match the search."
+msgstr "検索に一致するアイコンはありません。"
+
+msgid "Add your own: PNG pictures in the icons folder."
+msgstr "自分の画像を追加：icons フォルダーに PNG 画像を入れてください。"
+
+msgid "Planet conditions"
+msgstr "惑星環境"
+
+msgid "Folder logo"
+msgstr "フォルダーのロゴ"
+
+msgid "Change the folder's logo"
+msgstr "フォルダーのロゴを変更"
+
+msgid "The folder symbol"
+msgstr "フォルダーの記号"

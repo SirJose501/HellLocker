@@ -32,6 +32,8 @@ pub(super) enum WorkerEvent {
     Progress(AppEvent),
     Finished {
         saved: bool,
+        /// HellLocker 1.9.4: a preset was applied (for Recently used).
+        applied: bool,
     },
     PreviewsLoaded(
         std::result::Result<
@@ -100,20 +102,35 @@ impl ActionWorker {
                                 evidence: &evidence,
                             };
                             let start = Instant::now();
+                            crate::cancel::reset();
                             let outcome = execute_preset(&runtime, &mut context, &preset, command, &mut capture_session, target);
-                            if let Err(error) = &outcome {
+                            // HellLocker: a stop the user asked for is not a failure.
+                            // Clicking HellLocker's own panel (its Stop button, say) takes
+                            // focus from the game; that is the user stopping it too.
+                            let stopped = outcome.as_ref().err().is_some_and(|error| {
+                                crate::cancel::is_cancel(error)
+                                    || (crate::cancel::lost_focus(error) && own_window_in_front())
+                            });
+                            if stopped {
+                                tracing::info!(elapsed_s = start.elapsed().as_secs_f64(), "preset action stopped by the user");
+                                sink.emit(AppEvent::PresetCancelled { preset: preset.clone(), reason: "you stopped it".into() });
+                            } else if let Err(error) = &outcome {
                                 let message = format!("{error:#}");
                                 error!(elapsed_s = start.elapsed().as_secs_f64(), error = %message, "preset action failed");
                                 sink.emit(AppEvent::PresetFailed { preset: preset.clone(), error: message });
                             }
                             capture_session.finish_action();
-                            if let Err(error) = &outcome {
+                            crate::cancel::reset();
+                            if let Err(error) = &outcome
+                                && !stopped
+                            {
                                 save_failure_report(&paths.last_failure, &preset, command, error, Some(&evidence));
                             }
                             equipment_cache.save_if_changed(&cache_path);
                             let saved = matches!(&outcome, Ok(PresetActionOutcome::Saved));
+                            let applied = matches!(&outcome, Ok(PresetActionOutcome::Applied));
                             // Completion follows all progress on the same FIFO channel.
-                            if event_tx.send(WorkerEvent::Finished { saved }).is_err() { break; }
+                            if event_tx.send(WorkerEvent::Finished { saved, applied }).is_err() { break; }
                         }
                     }
                 }
@@ -161,4 +178,18 @@ fn prepare_capture(capture_session: &mut CaptureSessionManager, identity: Window
             "capture preparation skipped"
         );
     }
+}
+
+/// HellLocker: whether one of HellLocker's own windows is in front.
+#[cfg(target_os = "windows")]
+fn own_window_in_front() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    let mut process = 0u32;
+    unsafe { GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut process)) };
+    process == std::process::id()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn own_window_in_front() -> bool {
+    false
 }

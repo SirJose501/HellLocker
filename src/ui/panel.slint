@@ -2,12 +2,13 @@ import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { PanelButton, PanelComboBox, IconButton, DeletePresetDialog, NameImage, FailureNotice } from "controls.slint";
 import { SettingsDialog } from "settings.slint";
-import { ActionScope, PreviewRole, PreviewRow, PreviewSection, PresetRow, FolderRow, ShortcutRow, MonitorRole, MonitorChoice } from "models.slint";
+import { ActionScope, PreviewRole, PreviewRow, PreviewSection, PresetRow, FolderRow, ShortcutRow, MonitorRole, MonitorChoice, SetupLine, SetupLevel, IconChoice } from "models.slint";
+import { IconSlot } from "icon_picker.slint";
 import { UiText } from "text.slint";
 import { Icons, TagIcon, FactionIcon, Subfactions } from "icons.slint";
 // HellLocker: the panel font (Liberation Sans Bold, SIL Open Font License).
 import "../../assets/LiberationSans-Bold.ttf";
-export { ActionScope, PreviewRole, PreviewRow, PreviewSection, PresetRow, FolderRow, MonitorRole, ShortcutRow, MonitorChoice }
+export { ActionScope, PreviewRole, PreviewRow, PreviewSection, PresetRow, FolderRow, MonitorRole, ShortcutRow, MonitorChoice, SetupLine, SetupLevel }
 export { AppTray } from "tray.slint";
 export { ActionStatus, StatusItem, StatusTone } from "status.slint";
 export { Fonts } from "theme.slint";
@@ -180,14 +181,15 @@ component GearCard inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
-    height: 104px;
+    height: 84px;
     background: #0b0b0cd9;
     border-radius: 4px;
     border-width: 1px;
     border-color: root.on && !root.dimmed ? #ffd21f40 : #ffffff14;
     VerticalLayout {
-        padding: 7px;
-        spacing: 4px;
+        padding: 6px;
+        padding-bottom: 4px;
+        spacing: 2px;
         HorizontalLayout {
             height: 16px;
             spacing: 6px;
@@ -232,28 +234,50 @@ component GearCard inherits Rectangle {
                 accessible-action-default => { if (root.enabled) { root.toggled(); } }
             }
         }
+        // HellLocker 1.9.6: the picture takes the rest of the card (its plain margins are
+        // trimmed when it loads); the name sits over its foot, in the panel's font when
+        // it could be read.
         Rectangle {
             vertical-stretch: 1;
             opacity: root.on && !root.dimmed ? 1 : 0.4;
             if (root.ready && root.item.has-icon): Image {
+                y: 0px;
                 width: parent.width;
-                height: parent.height;
+                height: parent.height - 6px;
                 source: root.item.icon;
                 image-fit: contain;
             }
             if (!root.ready || !root.item.has-icon): Text {
                 width: parent.width;
-                height: parent.height;
+                height: parent.height - 12px;
                 text: "—";
                 color: Theme.inactive;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
-        }
-        if (root.ready): NameImage {
-            source: root.item.picture;
-            height: 13px;
-            opacity: root.on && !root.dimmed ? 1 : 0.4;
+            if (root.ready): Rectangle {
+                y: parent.height - self.height;
+                height: 16px;
+                background: @linear-gradient(0deg, #0b0b0cf2 0%, #0b0b0cb3 70%, #0b0b0c00 100%);
+                if (root.item.name != ""): Text {
+                    x: 2px;
+                    width: parent.width - 4px;
+                    height: parent.height;
+                    text: root.item.name;
+                    color: Theme.text;
+                    font-size: 11px;
+                    font-weight: 700;
+                    vertical-alignment: bottom;
+                    overflow: elide;
+                }
+                if (root.item.name == ""): NameImage {
+                    x: 2px;
+                    y: parent.height - self.height;
+                    width: parent.width - 4px;
+                    height: 13px;
+                    source: root.item.picture;
+                }
+            }
         }
     }
 }
@@ -266,19 +290,22 @@ component FolderHeader inherits Rectangle {
     in property <bool> renaming;
     // A dragged preset is over this header.
     in property <bool> hot;
+    // HellLocker 1.9.6: open the logo picker below the tool (its window position).
+    callback pick-logo(length);
     callback toggle();
     callback begin-rename();
     callback rename(string);
     callback cancel-rename();
     callback delete();
-    private property <bool> show-tools: (touch.has-hover || rename-tool.hovered || delete-tool.hovered) && root.enabled && !root.renaming;
+    private property <bool> fixed: root.folder.kind != 0;
+    private property <bool> show-tools: (touch.has-hover || rename-tool.hovered || delete-tool.hovered || logo-tool.hovered) && root.enabled && !root.renaming && !root.fixed;
     height: 34px;
     border-radius: 5px;
     background: root.hot ? #ffd21f2e : touch.has-hover ? #ffd21f1f : #ffd21f0f;
     border-width: root.hot ? 2px : 0px;
     border-color: Theme.button-outline;
     accessible-role: button;
-    accessible-label: root.folder.name;
+    accessible-label: root.folder.kind == 1 ? @tr("Favourites") : root.folder.kind == 2 ? @tr("Recently used") : root.folder.name;
     accessible-expandable: true;
     accessible-expanded: root.folder.open;
     accessible-action-default => { root.toggle(); }
@@ -286,7 +313,6 @@ component FolderHeader inherits Rectangle {
         enabled: root.enabled && !root.renaming;
         mouse-cursor: pointer;
         clicked => { root.toggle(); }
-        double-clicked => { root.begin-rename(); }
     }
     HorizontalLayout {
         padding-left: 8px;
@@ -301,20 +327,31 @@ component FolderHeader inherits Rectangle {
             commands: root.folder.open ? "M 1 3 L 9 3 L 5 8 Z" : "M 3 1 L 8 5 L 3 9 Z";
             fill: Theme.button-outline;
         }
-        Path {
+        // HellLocker 1.9.6: the folder's logo, when one is picked.
+        if (root.folder.has-icon && root.folder.kind == 0): Image {
+            width: 24px;
+            height: 24px;
+            cross-axis-self-alignment: center;
+            source: root.folder.icon;
+            image-fit: contain;
+        }
+        if (!root.folder.has-icon || root.folder.kind != 0): Path {
             width: 22px;
             height: 22px;
             cross-axis-self-alignment: center;
             viewbox-width: 24;
             viewbox-height: 24;
-            commands: "M 2.5 6 L 2.5 19 L 21.5 19 L 21.5 8 L 11 8 L 9 5.5 L 3 5.5 Z";
-            fill: root.folder.open ? #ffd21f33 : transparent;
+            // A folder; a star for Favourites; a clock for Recently used.
+            commands: root.folder.kind == 1 ? "M 12 2.8 L 14.8 8.6 L 21.2 9.5 L 16.6 14 L 17.7 20.4 L 12 17.4 L 6.3 20.4 L 7.4 14 L 2.8 9.5 L 9.2 8.6 Z"
+                : root.folder.kind == 2 ? "M 12 3.5 A 8.5 8.5 0 1 1 12 20.5 A 8.5 8.5 0 1 1 12 3.5 Z M 12 7 L 12 12 L 15.5 14"
+                : "M 2.5 6 L 2.5 19 L 21.5 19 L 21.5 8 L 11 8 L 9 5.5 L 3 5.5 Z";
+            fill: root.folder.kind == 1 ? #ffd21f59 : root.folder.open && root.folder.kind == 0 ? #ffd21f33 : transparent;
             stroke: Theme.button-outline;
             stroke-width: 1.6px;
         }
         if (!root.renaming): Text {
             horizontal-stretch: 1;
-            text: root.folder.name;
+            text: root.folder.kind == 1 ? @tr("Favourites") : root.folder.kind == 2 ? @tr("Recently used") : root.folder.name;
             color: Theme.button-outline;
             font-size: 14px;
             font-weight: 700;
@@ -366,6 +403,15 @@ component FolderHeader inherits Rectangle {
             }
         }
         // Kept in the layout (just hidden) so hovering them keeps them shown.
+        logo-tool := IconButton {
+            visible: root.show-tools;
+            width: root.show-tools ? 24px : 0px;
+            height: 24px;
+            cross-axis-self-alignment: center;
+            label: @tr("Change the folder's logo");
+            path: "M 3 4 L 21 4 L 21 20 L 3 20 Z M 3 17 L 9 11 L 13 15 L 16 12 L 21 17 M 16.5 8.5 A 1.5 1.5 0 1 1 13.5 8.5 A 1.5 1.5 0 1 1 16.5 8.5 Z";
+            clicked => { root.pick-logo(self.absolute-position.y + self.height); }
+        }
         rename-tool := IconButton {
             visible: root.show-tools;
             width: root.show-tools ? 24px : 0px;
@@ -387,26 +433,67 @@ component FolderHeader inherits Rectangle {
     }
 }
 
-component StratagemPreview inherits Rectangle {
-    in property <[PreviewRow]> items;
-    in property <length> icon-size: 40px;
-    in property <bool> compact;
-    min-height: icon-size;
-    HorizontalLayout {
-        y: (parent.height - self.height) / 2;
-        height: root.icon-size;
-        alignment: start;
-        spacing: root.compact ? 5px : 8px;
-        for item[index] in root.items: HorizontalLayout {
-            spacing: root.compact ? 5px : 12px;
-            if (index == 4 && !root.compact): Rectangle { width: 1px; background: Theme.border; }
-            if (!root.compact || index < 5): Image {
-                source: item.picture;
-                width: root.icon-size;
-                height: root.icon-size;
-                image-fit: contain;
-                Tooltip { text: @markdown("\{UiText.item-label(item)}"); }
-            }
+component HeaderActions inherits HorizontalLayout {
+    in property <bool> interactive;
+    in property <bool> save-available;
+    in property <bool> available;
+    in property <string> save-text;
+    in property <string> apply-text;
+    in property <bool> save-hint;
+    callback scan();
+    callback save();
+    callback apply();
+    spacing: 12px;
+    // HellLocker 1.9.0: the main actions at the top, each with its key below.
+    VerticalLayout {
+        spacing: 2px;
+        PanelButton {
+            text: @tr("Scan equipment");
+            filled: true;
+            enabled: root.interactive;
+            height: 30px;
+            property <string> hint: @tr("Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates.");
+            Tooltip { text: @markdown("\{parent.hint}"); }
+            clicked => { root.scan(); }
+        }
+        Text { text: ""; font-size: 9px; height: 12px; }
+    }
+    VerticalLayout {
+        spacing: 2px;
+        width: max(130px, save-button.preferred-width);
+        save-button := PanelButton {
+            height: 30px;
+            text: root.save-text;
+            filled: true;
+            enabled: root.save-available;
+            property <string> hint: @tr("Fill all four Stratagem slots before saving.");
+            if (root.save-hint): Tooltip { text: @markdown("\{parent.hint}"); }
+            clicked => { root.save(); }
+        }
+        Text {
+            text: "Ctrl+S";
+            color: root.save-available ? Theme.text-secondary : Theme.inactive;
+            font-size: 9px;
+            height: 12px;
+            horizontal-alignment: center;
+        }
+    }
+    VerticalLayout {
+        spacing: 2px;
+        width: max(130px, apply-button.preferred-width);
+        apply-button := PanelButton {
+            height: 30px;
+            text: root.apply-text;
+            accent: true;
+            enabled: root.available;
+            clicked => { root.apply(); }
+        }
+        Text {
+            text: "Enter";
+            color: root.available ? Theme.text-secondary : Theme.inactive;
+            font-size: 9px;
+            height: 12px;
+            horizontal-alignment: center;
         }
     }
 }
@@ -416,7 +503,9 @@ export component PresetPanel inherits Window {
     always-on-top: true;
     no-frame: true;
     resize-border-width: 0px;
-    out property <length> ideal-width: 1200px;
+    // HellLocker 1.9.4: collapsed, only the left column (46 + 580 + 6 + 24 + 46).
+    // HellLocker 1.9.6: the left column is wider for two columns of presets.
+    out property <length> ideal-width: root.compact ? 702px : 1320px;
     out property <length> ideal-height: 820px;
     in property <length> available-width: ideal-width;
     in property <length> available-height: ideal-height;
@@ -465,6 +554,7 @@ export component PresetPanel inherits Window {
     in-out property <int> draft-status-popup;
     in-out property <int> settings-tab;
     in property <string> settings-notice;
+    in property <[SetupLine]> setup-lines;
     // HellLocker: background art opacity (0.1 to 1); Settings previews its slider live.
     in property <float> background-opacity: 0.85;
     in-out property <int> recording-shortcut: -1;
@@ -486,13 +576,36 @@ export component PresetPanel inherits Window {
     in-out property <int> view-subfaction: 0;
     changed view-subfaction => { root.sync-view(); }
     changed view-faction => { root.sync-view(); }
+    private property <string> save-label: root.scope-stratagems ? (root.scope-equipment ? @tr("Save preset") : @tr("Save Stratagems"))
+        : root.scope-equipment ? @tr("Save equipment") : @tr("Select content");
+    private property <string> apply-label: root.include-stratagems ? (root.include-equipment ? @tr("Apply all") : @tr("Apply Stratagems"))
+        : root.include-equipment ? @tr("Apply equipment") : @tr("Select content");
     private property <bool> include-stratagems: scope-stratagems && current.stratagems.saved;
     private property <bool> include-equipment: scope-equipment && current.equipment.saved;
     out property <bool> editing-name: editing-preset != "";
     // HellLocker: the preset search box, and whether it has the keyboard (preset
     // shortcuts pause while typing in it).
     in-out property <string> search-text;
-    out property <bool> searching: search-input.has-focus;
+    out property <bool> searching: search-input.has-focus || notes-input.has-focus || icon-slot-a.open || icon-slot-b.open || folder-logo.open;
+    // HellLocker 1.9.5: the icon picker's list (filtered by Rust), which of its groups
+    // have icons, and whether any preset has a second icon (the list then keeps room
+    // for it on every row, so the names line up).
+    in property <[IconChoice]> icon-choices;
+    in property <[bool]> icon-groups;
+    in-out property <string> icon-search;
+    in-out property <int> icon-group;
+    in property <bool> any-second-icon;
+    callback request-icon-filter(string, int);
+    callback request-icon-picker();
+    callback request-icon(string, int, string);
+    callback request-icons-folder();
+    callback request-folder-icon(string, string);
+    // HellLocker 1.9.6: the folder whose logo is being picked, and where its picker opens.
+    private property <string> logo-folder;
+    private property <string> logo-current;
+    private property <length> logo-y;
+    // HellLocker 1.9.6: the row the arrow keys move to (index, steps across, steps down).
+    pure callback neighbour(int, int, int) -> int;
     out property <bool> save-available: root.action-available(true, ActionScope.selected);
     out property <bool> available: root.action-available(false, ActionScope.selected);
     private property <PresetRow> current: presets[current-index];
@@ -502,7 +615,12 @@ export component PresetPanel inherits Window {
     private property <string> editing-preset;
     private property <string> name-draft;
     private property <bool> apply-key-down;
-    private property <length> row-height: 40px;
+    private property <length> row-height: 34px;
+    // HellLocker 1.9.6: the left column, and its two columns of presets (each as wide
+    // as half the list, less the gap between them).
+    private property <length> left-width: 580px;
+    private property <length> column-gap: 6px;
+    private property <length> column-pitch: max(1px, list-area.width / 2);
     private property <length> row-spacing: 3px;
     changed current-index => { root.finish-rename(true); root.reveal-current(); root.sync-tags(); }
     // The row under the mouse may be gone after a rebuild; go back to the selection.
@@ -511,6 +629,11 @@ export component PresetPanel inherits Window {
     // HellLocker: they follow the hovered preset like the rest of the preview, and go
     // back to the selected one when the mouse leaves the list (choices always edit it).
     changed hovered-index => { root.sync-tags(); }
+    // HellLocker 1.9.4: the notes box shows the previewed preset's notes, except while
+    // they are being typed.
+    private property <string> saved-notes: root.preview.notes;
+    changed saved-notes => { if (root.notes-preset == "") { notes-input.text = root.saved-notes; } }
+    changed notes-preset => { if (root.notes-preset == "") { notes-input.text = root.saved-notes; } }
     function sync-tags() {
         tag-faction.current-index = root.preview.faction;
         tag-mission.current-index = root.preview.mission;
@@ -555,14 +678,26 @@ export component PresetPanel inherits Window {
     callback request-rename-folder(string, string);
     callback request-delete-folder(string);
     callback request-open-folder(string, bool);
-    callback request-move(string, length);
+    callback request-move(string, float, length);
+    // HellLocker 1.9.4: star a preset, its notes, a copy of it, the Favourites /
+    // Recently used sections (1 / 2), the collapsed right side, and stopping an action.
+    callback request-favorite(string, bool);
+    callback request-notes(string, string);
+    callback request-duplicate(string);
+    callback request-open-pinned(int, bool);
+    callback request-compact(bool);
+    callback request-stop();
+    in-out property <bool> compact;
+    private property <string> notes-preset;
     private property <int> drag-index: -1;
     private property <bool> dragging;
     private property <length> drag-y;
+    // HellLocker 1.9.6: across the list, for the two columns.
+    private property <length> drag-x;
     private property <length> drag-from;
     function end-drag() {
         if (root.dragging && root.drag-index >= 0 && root.drag-index < root.presets.length) {
-            root.request-move(root.presets[root.drag-index].name, root.drag-y);
+            root.request-move(root.presets[root.drag-index].name, root.drag-x / root.column-pitch, root.drag-y);
         }
         root.dragging = false;
         root.drag-index = -1;
@@ -590,7 +725,7 @@ export component PresetPanel inherits Window {
         root.delete-open = true;
         delete-dialog.focus-dialog();
     }
-    function begin-rename() {
+    public function begin-rename() {
         if (!root.interactive || root.presets.length == 0 || root.editing-name) { return; }
         root.hovered-index = -1;
         root.apply-key-down = false;
@@ -631,6 +766,12 @@ export component PresetPanel inherits Window {
             root.request-action(false, scope);
         }
     }
+    function duplicate-current() {
+        if (root.interactive && root.presets.length > 0) {
+            root.finish-rename(true);
+            root.request-duplicate(root.current.name);
+        }
+    }
     function save-current() {
         if (root.save-available) {
             root.finish-rename(true);
@@ -662,17 +803,29 @@ export component PresetPanel inherits Window {
                 if (!event.repeat) { root.save-current(); }
                 return accept;
             }
+            if (event.modifiers.control && !event.modifiers.shift && !event.modifiers.alt && !event.modifiers.meta
+                && (event.text == "d" || event.text == "D")) {
+                if (!event.repeat) { root.duplicate-current(); }
+                return accept;
+            }
             if (event.modifiers.control || event.modifiers.shift || event.modifiers.alt || event.modifiers.meta) { return reject; }
             let up = event.text == Key.UpArrow || event.text == "w" || event.text == "W";
             let down = event.text == Key.DownArrow || event.text == "s" || event.text == "S";
             if (up || down) {
                 root.hovered-index = -1;
-                root.current-index = clamp(root.current-index + (down ? 1 : -1), 0, max(0, root.presets.length - 1));
+                root.current-index = root.neighbour(root.current-index, 0, down ? 1 : -1);
+                return accept;
+            }
+            // HellLocker 1.9.6: the arrow keys move across the two columns; A / D still
+            // change the faction filter.
+            if (event.text == Key.LeftArrow || event.text == Key.RightArrow) {
+                root.hovered-index = -1;
+                root.current-index = root.neighbour(root.current-index, event.text == Key.RightArrow ? 1 : -1, 0);
                 return accept;
             }
             if (event.text == Key.Return) { root.apply-key-down = true; return accept; }
-            let left = event.text == Key.LeftArrow || event.text == "a" || event.text == "A";
-            let right = event.text == Key.RightArrow || event.text == "d" || event.text == "D";
+            let left = event.text == "a" || event.text == "A";
+            let right = event.text == "d" || event.text == "D";
             if (left || right) { root.cycle-view(right ? 1 : -1, 0); return accept; }
             let previous = event.text == "q" || event.text == "Q";
             let next = event.text == "e" || event.text == "E";
@@ -726,7 +879,7 @@ export component PresetPanel inherits Window {
                             vertical-alignment: center;
                         }
                         // HellLocker 1.9.0: the global show / hide shortcut, beside the version.
-                        if (root.panel-shortcut-keys.length > 0): HorizontalLayout {
+                        if (root.panel-shortcut-keys.length > 0 && !root.compact): HorizontalLayout {
                             height: 22px;
                             cross-axis-self-alignment: center;
                             padding-left: 8px;
@@ -758,59 +911,16 @@ export component PresetPanel inherits Window {
                         }
                     }
                 }
-                // HellLocker 1.9.0: the main actions at the top, each with its key below.
-                VerticalLayout {
-                    spacing: 2px;
-                    PanelButton {
-                        text: @tr("Scan equipment");
-                        filled: true;
-                        enabled: root.interactive;
-                        height: 30px;
-                        property <string> hint: @tr("Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates.");
-                        Tooltip { text: @markdown("\{parent.hint}"); }
-                        clicked => { root.finish-rename(true); root.request-scan(); }
-                    }
-                    Text { text: ""; font-size: 9px; height: 12px; }
-                }
-                VerticalLayout {
-                    spacing: 2px;
-                    width: max(130px, save-button.preferred-width);
-                    save-button := PanelButton {
-                        height: 30px;
-                        text: root.scope-stratagems ? (root.scope-equipment ? @tr("Save preset") : @tr("Save Stratagems"))
-                            : root.scope-equipment ? @tr("Save equipment") : @tr("Select content");
-                        filled: true;
-                        enabled: root.save-available;
-                        property <string> hint: @tr("Fill all four Stratagem slots before saving.");
-                        if (root.scope-stratagems): Tooltip { text: @markdown("\{parent.hint}"); }
-                        clicked => { root.save-current(); }
-                    }
-                    Text {
-                        text: "Ctrl+S";
-                        color: root.save-available ? Theme.text-secondary : Theme.inactive;
-                        font-size: 9px;
-                        height: 12px;
-                        horizontal-alignment: center;
-                    }
-                }
-                VerticalLayout {
-                    spacing: 2px;
-                    width: max(130px, apply-button.preferred-width);
-                    apply-button := PanelButton {
-                        height: 30px;
-                        text: root.include-stratagems ? (root.include-equipment ? @tr("Apply all") : @tr("Apply Stratagems"))
-                            : root.include-equipment ? @tr("Apply equipment") : @tr("Select content");
-                        accent: true;
-                        enabled: root.available;
-                        clicked => { root.apply-current(ActionScope.selected); }
-                    }
-                    Text {
-                        text: "Enter";
-                        color: root.available ? Theme.text-secondary : Theme.inactive;
-                        font-size: 9px;
-                        height: 12px;
-                        horizontal-alignment: center;
-                    }
+                if (!root.compact): HeaderActions {
+                    interactive: root.interactive;
+                    save-available: root.save-available;
+                    available: root.available;
+                    save-text: root.save-label;
+                    apply-text: root.apply-label;
+                    save-hint: root.scope-stratagems;
+                    scan => { root.finish-rename(true); root.request-scan(); }
+                    save => { root.save-current(); }
+                    apply => { root.apply-current(ActionScope.selected); }
                 }
                 VerticalLayout {
                     width: 28px;
@@ -825,13 +935,26 @@ export component PresetPanel inherits Window {
                     Text { text: "Esc"; color: Theme.text-secondary; font-size: 9px; height: 12px; horizontal-alignment: center; }
                 }
             }
+            // HellLocker 1.9.4: collapsed, the actions get a row of their own.
+            if (root.compact): HeaderActions {
+                height: 44px;
+                interactive: root.interactive;
+                save-available: root.save-available;
+                available: root.available;
+                save-text: root.save-label;
+                apply-text: root.apply-label;
+                save-hint: root.scope-stratagems;
+                scan => { root.finish-rename(true); root.request-scan(); }
+                save => { root.save-current(); }
+                apply => { root.apply-current(ActionScope.selected); }
+            }
             Rectangle { height: 1px; background: Theme.border; }
             HorizontalLayout {
                 min-height: 0px;
                 vertical-stretch: 1;
-                spacing: 18px;
+                spacing: 6px;
                 VerticalLayout {
-                    width: 460px;
+                    width: root.left-width;
                     spacing: 8px;
                     // HellLocker 1.8.0: faction and sub-faction filters side by side, then the
                     // mission filter beside the search box.
@@ -867,7 +990,7 @@ export component PresetPanel inherits Window {
                     HorizontalLayout {
                     spacing: 8px;
                     PanelComboBox {
-                        width: (460px - 8px) / 2;
+                        width: (root.left-width - 8px) / 2;
                         enabled: root.interactive;
                         model: [@tr("All missions"), UiText.mission-name(1), UiText.mission-name(2), UiText.mission-name(3), UiText.mission-name(4)];
                         icons: [Icons.mission(0), Icons.mission(1), Icons.mission(2), Icons.mission(3), Icons.mission(4)];
@@ -936,7 +1059,7 @@ export component PresetPanel inherits Window {
                                         // Up and Down still move through the list while searching.
                                         if (event.text == Key.UpArrow || event.text == Key.DownArrow) {
                                             root.hovered-index = -1;
-                                            root.current-index = clamp(root.current-index + (event.text == Key.DownArrow ? 1 : -1), 0, max(0, root.presets.length - 1));
+                                            root.current-index = root.neighbour(root.current-index, 0, event.text == Key.DownArrow ? 1 : -1);
                                             return accept;
                                         }
                                         return reject;
@@ -975,7 +1098,7 @@ export component PresetPanel inherits Window {
                     }
                     preset-list := ScrollView {
                         min-height: 0px;
-                        width: 460px;
+                        width: root.left-width;
                         content-width: self.visible-width - 8px;
                         // HellLocker 1.9.1: the rows are placed by position, so give the
                         // scroll area the list's real height.
@@ -993,8 +1116,13 @@ export component PresetPanel inherits Window {
                                 folder: folder;
                                 enabled: root.interactive && !root.dragging;
                                 renaming: root.renaming-folder == folder.id;
-                                hot: root.dragging && root.drag-y >= folder.top && root.drag-y < folder.top + 37px;
-                                toggle => { root.finish-rename(true); root.request-open-folder(folder.id, !folder.open); keyboard.focus(); }
+                                hot: folder.kind == 0 && root.dragging && root.drag-y >= folder.top && root.drag-y < folder.top + 37px;
+                                toggle => {
+                                    root.finish-rename(true);
+                                    if (folder.kind == 0) { root.request-open-folder(folder.id, !folder.open); }
+                                    else { root.request-open-pinned(folder.kind, !folder.open); }
+                                    keyboard.focus();
+                                }
                                 begin-rename => { root.finish-rename(true); root.renaming-folder = folder.id; }
                                 rename(name) => {
                                     if (root.renaming-folder == folder.id) {
@@ -1005,11 +1133,21 @@ export component PresetPanel inherits Window {
                                 }
                                 cancel-rename => { root.renaming-folder = ""; root.request-rename-folder(folder.id, folder.name); keyboard.focus(); }
                                 delete => { root.request-delete-folder(folder.id); keyboard.focus(); }
+                                pick-logo(below) => {
+                                    root.finish-rename(true);
+                                    root.logo-folder = folder.id;
+                                    root.logo-current = folder.icon-id;
+                                    root.logo-y = below;
+                                    folder-logo.show();
+                                }
                             }
-                            for preset[index] in root.presets: Rectangle {
+                            // HellLocker 1.9.6: two columns; a folder's presets are indented.
+                            for preset[index] in root.presets: preset-row := Rectangle {
+                                property <length> indent: preset.in-folder || preset.pinned ? 18px : 0px;
+                                property <length> cell: (parent.width - self.indent - root.column-gap) / 2;
                                 y: preset.top;
-                                x: preset.in-folder ? 18px : 0px;
-                                width: parent.width - self.x;
+                                x: self.indent + preset.column * (self.cell + root.column-gap);
+                                width: self.cell;
                                 height: root.row-height;
                                 opacity: root.dragging && index == root.drag-index ? 0.3 : 1;
                                 background: index == root.current-index ? #302e22 : touch.has-hover ? #2d3032 : transparent;
@@ -1039,8 +1177,10 @@ export component PresetPanel inherits Window {
                                         padding-left: 2px;
                                         padding-right: 8px;
                                         spacing: 6px;
-                                        // HellLocker 1.9.1: the drag handle.
-                                        Rectangle {
+                                        // HellLocker 1.9.1: the drag handle (not on the copies
+                                        // in Favourites / Recently used).
+                                        if (preset.pinned): Rectangle { width: 14px; }
+                                        if (!preset.pinned): Rectangle {
                                             width: 14px;
                                             Path {
                                                 width: 8px;
@@ -1060,6 +1200,7 @@ export component PresetPanel inherits Window {
                                                         root.dragging = false;
                                                         root.drag-from = preset.top + self.mouse-y;
                                                         root.drag-y = root.drag-from;
+                                                        root.drag-x = preset-row.x + 2px + self.mouse-x;
                                                     } else if (event.kind == PointerEventKind.up && root.drag-index == index) {
                                                         if (!root.dragging) { root.current-index = index; keyboard.focus(); }
                                                         root.end-drag();
@@ -1068,6 +1209,7 @@ export component PresetPanel inherits Window {
                                                 moved => {
                                                     if (root.drag-index == index) {
                                                         root.drag-y = preset.top + self.mouse-y;
+                                                        root.drag-x = preset-row.x + 2px + self.mouse-x;
                                                         if (!root.dragging && abs(root.drag-y - root.drag-from) > 4px) {
                                                             root.dragging = true;
                                                         }
@@ -1076,16 +1218,23 @@ export component PresetPanel inherits Window {
                                             }
                                         }
                                         // The sub-faction's emblem when it has one, else the faction's.
+                                        // HellLocker 1.9.5: or the icons picked for the preset.
                                         Rectangle {
-                                            width: 30px;
-                                            height: 30px;
+                                            width: 26px;
+                                            height: 26px;
                                             cross-axis-self-alignment: center;
-                                            if (preset.subfaction == 0): FactionIcon {
+                                            if (preset.has-icon-a): Image {
+                                                width: parent.width;
+                                                height: parent.height;
+                                                source: preset.icon-a;
+                                                image-fit: contain;
+                                            }
+                                            if (!preset.has-icon-a && preset.subfaction == 0): FactionIcon {
                                                 width: parent.width;
                                                 height: parent.height;
                                                 faction: preset.faction;
                                             }
-                                            if (preset.subfaction != 0): Image {
+                                            if (!preset.has-icon-a && preset.subfaction != 0): Image {
                                                 width: parent.width;
                                                 height: parent.height;
                                                 source: Subfactions.image(preset.subfaction);
@@ -1093,57 +1242,83 @@ export component PresetPanel inherits Window {
                                             }
                                             Tooltip { text: @markdown("\{UiText.full-tag-line(preset.faction, preset.subfaction, preset.mission)}"); }
                                         }
-                                        TagIcon {
-                                            width: 24px;
-                                            height: 24px;
+                                        if (root.any-second-icon): Rectangle {
+                                            width: 26px;
+                                            height: 26px;
                                             cross-axis-self-alignment: center;
-                                            icon: Icons.mission(preset.mission);
-                                            color: preset.mission != 0 ? Theme.accent : Theme.text-secondary;
+                                            if (preset.has-icon-b): Image {
+                                                width: parent.width;
+                                                height: parent.height;
+                                                source: preset.icon-b;
+                                                image-fit: contain;
+                                            }
                                         }
                                         VerticalLayout {
                                             horizontal-stretch: 1;
                                             min-width: 0px;
                                             alignment: center;
                                             spacing: 1px;
+                                            property <bool> saved: preset.stratagems.saved || preset.equipment.saved;
                                             Text {
                                                 text: UiText.preset-title(preset.label, preset.number);
-                                                color: Theme.text;
+                                                color: parent.saved ? Theme.text : Theme.text-secondary;
                                                 font-size: 14px;
                                                 font-weight: 700;
                                                 overflow: elide;
                                             }
-                                            if (preset.shortcut != ""): Text {
-                                                text: preset.shortcut;
+                                            // HellLocker 1.9.6: the shortcut, or "Not saved" for an
+                                            // empty preset (the Stratagems now show on the right only).
+                                            if (preset.shortcut != "" || !(preset.stratagems.saved || preset.equipment.saved)): Text {
+                                                text: preset.shortcut != "" ? preset.shortcut : @tr("Not saved");
                                                 color: Theme.text-secondary;
                                                 font-size: 10px;
                                                 overflow: elide;
                                             }
                                         }
-                                        if (preset.stratagems.ready): StratagemPreview {
-                                            width: 5 * 32px + 4 * 5px;
-                                            height: 32px;
+                                        // HellLocker 1.9.4: star to pin it in Favourites.
+                                        star := Rectangle {
+                                            width: 22px;
+                                            height: 22px;
                                             cross-axis-self-alignment: center;
-                                            icon-size: 32px;
-                                            compact: true;
-                                            items: preset.stratagems.items;
-                                            opacity: root.scope-stratagems ? 1 : 0.65;
-                                        }
-                                        if (!preset.stratagems.ready): Text {
-                                            width: 5 * 32px + 4 * 5px;
-                                            text: preset.stratagems.saved || preset.equipment.saved ? @tr("Preview unavailable") : @tr("Not saved");
-                                            color: Theme.text-secondary;
-                                            font-size: 11px;
-                                            horizontal-alignment: right;
-                                            vertical-alignment: center;
-                                            overflow: elide;
+                                            accessible-role: checkbox;
+                                            accessible-label: @tr("Favourite");
+                                            accessible-checkable: true;
+                                            accessible-checked: preset.favorite;
+                                            accessible-action-default => { root.request-favorite(preset.name, !preset.favorite); }
+                                            Path {
+                                                width: 18px;
+                                                height: 18px;
+                                                x: 2px;
+                                                y: 2px;
+                                                viewbox-width: 24;
+                                                viewbox-height: 24;
+                                                commands: "M 12 2.8 L 14.8 8.6 L 21.2 9.5 L 16.6 14 L 17.7 20.4 L 12 17.4 L 6.3 20.4 L 7.4 14 L 2.8 9.5 L 9.2 8.6 Z";
+                                                fill: preset.favorite ? Theme.button-outline : transparent;
+                                                stroke: preset.favorite || star-touch.has-hover ? Theme.button-outline : Theme.inactive;
+                                                stroke-width: 1.6px;
+                                                opacity: preset.favorite || touch.has-hover || star-touch.has-hover ? 1 : 0;
+                                            }
+                                            star-touch := TouchArea {
+                                                enabled: root.interactive;
+                                                mouse-cursor: pointer;
+                                                clicked => { root.request-favorite(preset.name, !preset.favorite); }
+                                            }
+                                            property <string> hint: preset.favorite ? @tr("Remove from Favourites") : @tr("Add to Favourites");
+                                            Tooltip { text: @markdown("\{parent.hint}"); }
                                         }
                                     }
                                 // HellLocker 1.9.1: where a dragged preset would land.
-                                if (root.dragging && index != root.drag-index && root.drag-y >= preset.top && root.drag-y < preset.top + root.row-height / 2): Rectangle {
-                                    y: -2px; height: 2px; background: Theme.button-outline;
+                                // HellLocker 1.9.5: a bar at the left or right edge of the
+                                // preset it would go before or after.
+                                property <bool> drop-here: root.dragging && !preset.pinned && index != root.drag-index
+                                    && root.drag-y >= preset.top && root.drag-y < preset.top + root.row-height + root.row-spacing
+                                    && floor(root.drag-x / root.column-pitch) == preset.column;
+                                property <bool> drop-after: mod(root.drag-x / root.column-pitch, 1) >= 0.5;
+                                if (self.drop-here && !self.drop-after): Rectangle {
+                                    x: -3px; width: 3px; background: Theme.button-outline;
                                 }
-                                if (root.dragging && index != root.drag-index && root.drag-y >= preset.top + root.row-height / 2 && root.drag-y < preset.top + root.row-height + root.row-spacing): Rectangle {
-                                    y: parent.height; height: 2px; background: Theme.button-outline;
+                                if (self.drop-here && self.drop-after): Rectangle {
+                                    x: parent.width; width: 3px; background: Theme.button-outline;
                                 }
                             }
                             if (root.dragging && root.drag-y >= root.list-height): Rectangle {
@@ -1151,9 +1326,9 @@ export component PresetPanel inherits Window {
                             }
                             // The dragged preset follows the mouse.
                             if (root.dragging && root.drag-index >= 0 && root.drag-index < root.presets.length): Rectangle {
-                                x: 18px;
+                                x: clamp(root.drag-x - 40px, 0px, parent.width - self.width);
                                 y: root.drag-y - root.row-height / 2;
-                                width: parent.width - 24px;
+                                width: (parent.width - root.column-gap) / 2;
                                 height: root.row-height;
                                 background: #1d2122f2;
                                 border-radius: 5px;
@@ -1209,15 +1384,52 @@ export component PresetPanel inherits Window {
                         Tooltip { text: @markdown("\{parent.hint}"); }
                     }
                 }
-                Rectangle { width: 1px; background: Theme.border; }
+                // HellLocker 1.9.4: the divider, with a tab that folds the right side away
+                // (the panel then shows only the presets and filters) and brings it back.
+                Rectangle {
+                    width: 24px;
+                    Rectangle { x: (parent.width - 1px) / 2; width: 1px; background: Theme.border; }
+                    collapse-tab := Rectangle {
+                        y: 0px;
+                        height: 56px;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: collapse-touch.has-hover ? Theme.button-outline : #ffd21f73;
+                        background: collapse-touch.has-hover ? #2a2716 : #0b0b0c;
+                        accessible-role: button;
+                        accessible-label: root.compact ? @tr("Show the preset details") : @tr("Hide the preset details");
+                        accessible-action-default => { root.request-compact(!root.compact); }
+                        Path {
+                            width: 10px;
+                            height: 14px;
+                            viewbox-width: 10;
+                            viewbox-height: 14;
+                            // Points the way the panel will move.
+                            commands: root.compact ? "M 2 1 L 8 7 L 2 13" : "M 8 1 L 2 7 L 8 13";
+                            fill: transparent;
+                            stroke: Theme.button-outline;
+                            stroke-width: 2px;
+                        }
+                        collapse-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.finish-rename(true); root.request-compact(!root.compact); }
+                        }
+                        property <string> hint: root.compact ? @tr("Show the preset details") : @tr("Hide the preset details");
+                        Tooltip { text: @markdown("\{parent.hint}"); }
+                    }
+                }
+                // Collapsed, the details keep existing (the panel's functions use them)
+                // but get no room.
                 ScrollView {
+                    visible: !root.compact;
                     min-width: 0px;
+                    max-width: root.compact ? 0px : 100000px;
                     min-height: 0px;
                     horizontal-stretch: 1;
                     content-width: max(360px, self.visible-width - 8px);
                     VerticalLayout {
                         padding-top: 6px;
-                        spacing: 12px;
+                        spacing: 8px;
                         alignment: start;
                         // HellLocker 1.9.0: the preset's header card -- emblem, name, tag line.
                         Rectangle {
@@ -1239,13 +1451,21 @@ export component PresetPanel inherits Window {
                                     cross-axis-self-alignment: center;
                                     background: #00000066;
                                     border-radius: 4px;
-                                    if (root.preview.subfaction == 0): FactionIcon {
+                                    // HellLocker 1.9.5: the preset's first icon when one is picked.
+                                    if (root.preview.has-icon-a): Image {
+                                        x: 6px; y: 6px;
+                                        width: parent.width - 12px;
+                                        height: parent.height - 12px;
+                                        source: root.preview.icon-a;
+                                        image-fit: contain;
+                                    }
+                                    if (!root.preview.has-icon-a && root.preview.subfaction == 0): FactionIcon {
                                         x: 6px; y: 6px;
                                         width: parent.width - 12px;
                                         height: parent.height - 12px;
                                         faction: root.preview.faction;
                                     }
-                                    if (root.preview.subfaction != 0): Image {
+                                    if (!root.preview.has-icon-a && root.preview.subfaction != 0): Image {
                                         x: 5px; y: 5px;
                                         width: parent.width - 10px;
                                         height: parent.height - 10px;
@@ -1278,7 +1498,7 @@ export component PresetPanel inherits Window {
                                             }
                                             name-title := Text {
                                                 x: 0px;
-                                                width: min(self.preferred-width, parent.width - 72px);
+                                                width: min(self.preferred-width, parent.width - 104px);
                                                 height: parent.height;
                                                 visible: !root.editing-name || (root.name-draft == "" && name-input.preedit-text == "");
                                                 text: root.presets.length > 0 ? UiText.preset-title(root.preview.label, root.preview.number) : @tr("No presets");
@@ -1352,6 +1572,16 @@ export component PresetPanel inherits Window {
                                                 path: "M 4 6 L 20 6 M 9 6 L 9 3 L 15 3 L 15 6 M 6 6 L 7 21 L 17 21 L 18 6 M 10 10 L 10 17 M 14 10 L 14 17";
                                                 clicked => { root.begin-delete(); }
                                             }
+                                            // HellLocker 1.9.4: a copy of this preset (Ctrl+D).
+                                            IconButton {
+                                                x: name-title.width + 72px;
+                                                y: (parent.height - self.height) / 2;
+                                                visible: !root.editing-name && root.presets.length > 0;
+                                                enabled: root.interactive;
+                                                label: @tr("Duplicate preset (Ctrl+D)");
+                                                path: "M 8 8 L 20 8 L 20 20 L 8 20 Z M 16 8 L 16 4 L 4 4 L 4 16 L 8 16";
+                                                clicked => { root.duplicate-current(); }
+                                            }
                                         }
                                     }
                                     if (root.presets.length > 0): Text {
@@ -1412,6 +1642,48 @@ export component PresetPanel inherits Window {
                                     selected(index) => { root.request-tags(root.current.name, root.current.faction, root.current.subfaction, index); keyboard.focus(); }
                                 }
                             }
+                            // HellLocker 1.9.5: the two icons shown beside the preset's name.
+                            VerticalLayout {
+                                spacing: 4px;
+                                Text { text: @tr("Icons"); color: Theme.text-secondary; font-size: 10px; height: 14px; letter-spacing: 0.5px; }
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    icon-slot-a := IconSlot {
+                                        slot: 0;
+                                        enabled: root.interactive && root.presets.length > 0;
+                                        current-id: root.preview.icon-a-id;
+                                        picture: root.preview.icon-a;
+                                        has-picture: root.preview.has-icon-a;
+                                        faction: root.preview.faction;
+                                        subfaction: root.preview.subfaction;
+                                        choices: root.icon-choices;
+                                        groups-present: root.icon-groups;
+                                        search <=> root.icon-search;
+                                        group <=> root.icon-group;
+                                        opened => { root.request-icon-picker(); }
+                                        filter(text, group) => { root.request-icon-filter(text, group); }
+                                        chosen(id) => { root.request-icon(root.current.name, 0, id); keyboard.focus(); }
+                                        open-folder => { root.request-icons-folder(); }
+                                    }
+                                    icon-slot-b := IconSlot {
+                                        slot: 1;
+                                        enabled: root.interactive && root.presets.length > 0;
+                                        current-id: root.preview.icon-b-id;
+                                        picture: root.preview.icon-b;
+                                        has-picture: root.preview.has-icon-b;
+                                        faction: root.preview.faction;
+                                        subfaction: root.preview.subfaction;
+                                        choices: root.icon-choices;
+                                        groups-present: root.icon-groups;
+                                        search <=> root.icon-search;
+                                        group <=> root.icon-group;
+                                        opened => { root.request-icon-picker(); }
+                                        filter(text, group) => { root.request-icon-filter(text, group); }
+                                        chosen(id) => { root.request-icon(root.current.name, 1, id); keyboard.focus(); }
+                                        open-folder => { root.request-icons-folder(); }
+                                    }
+                                }
+                            }
                         }
                         SelectableSection {
                             text: @tr("Equipment");
@@ -1470,7 +1742,7 @@ export component PresetPanel inherits Window {
                                 root.request-scope(!root.scope-stratagems, root.scope-equipment);
                             }
                             Rectangle {
-                                height: 76px;
+                                height: 72px;
                                 if (root.preview.stratagems.ready): StratagemSlots {
                                     items: root.preview.stratagems.items;
                                     opacity: root.scope-stratagems ? 1 : 0.55;
@@ -1484,6 +1756,70 @@ export component PresetPanel inherits Window {
                                     wrap: word-wrap;
                                     font-size: 12px;
                                     vertical-alignment: center;
+                                }
+                            }
+                        }
+                        // HellLocker 1.9.4: notes for the preset, saved when you click away.
+                        Rectangle {
+                            visible: root.presets.length > 0;
+                            height: root.presets.length > 0 ? 78px : 0px;
+                            background: #0a0a0ab8;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: notes-input.has-focus ? #ffd21f80 : #ffd21f33;
+                            Rectangle { x: 0px; width: 3px; height: parent.height; background: Theme.button-outline; }
+                            VerticalLayout {
+                                padding-left: 14px;
+                                padding-right: 10px;
+                                padding-top: 5px;
+                                padding-bottom: 5px;
+                                spacing: 3px;
+                                HorizontalLayout {
+                                    height: 15px;
+                                    Text { text: @tr("Notes"); color: Theme.button-outline; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; vertical-alignment: center; horizontal-stretch: 1; }
+                                    Text {
+                                        text: notes-input.has-focus ? @tr("Saved when you click away") : "";
+                                        color: Theme.text-secondary;
+                                        font-size: 10px;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Rectangle {
+                                    vertical-stretch: 1;
+                                    clip: true;
+                                    if (notes-input.text == "" && !notes-input.has-focus): Text {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        text: @tr("Add notes: what this loadout is for, what to bring, who runs what…");
+                                        color: Theme.inactive;
+                                        font-size: 12px;
+                                        wrap: word-wrap;
+                                        vertical-alignment: top;
+                                    }
+                                    notes-input := TextInput {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        enabled: root.interactive || self.has-focus;
+                                        wrap: word-wrap;
+                                        single-line: false;
+                                        color: Theme.text;
+                                        font-size: 12px;
+                                        selection-background-color: #786c38;
+                                        selection-foreground-color: #fff8d4;
+                                        accessible-label: @tr("Notes");
+                                        changed has-focus => {
+                                            if (self.has-focus) {
+                                                root.notes-preset = root.current.name;
+                                            } else if (root.notes-preset != "") {
+                                                if (self.text != root.saved-notes) { root.request-notes(root.notes-preset, self.text); }
+                                                root.notes-preset = "";
+                                            }
+                                        }
+                                        key-pressed(event) => {
+                                            if (event.text == Key.Escape) { keyboard.focus(); return accept; }
+                                            return reject;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1518,6 +1854,15 @@ export component PresetPanel inherits Window {
                         Tooltip { text: @markdown("\{root.shortcut-warning}"); }
                     }
                 }
+                // HellLocker 1.9.4: stop a running save, apply or scan.
+                if (root.pending): PanelButton {
+                    width: 150px;
+                    height: 32px;
+                    cross-axis-self-alignment: center;
+                    text: @tr("Stop (Backspace)");
+                    accent: true;
+                    clicked => { root.request-stop(); }
+                }
                 PanelButton {
                     width: 130px;
                     height: 32px;
@@ -1525,7 +1870,9 @@ export component PresetPanel inherits Window {
                     text: @tr("Settings");
                     filled: true;
                     enabled: root.interactive;
-                    clicked => { root.finish-rename(true); root.edit-settings(); }
+                    // HellLocker 1.9.6: ends a folder rename first (it saves when its box
+                    // loses focus), so Settings always opens.
+                    clicked => { root.finish-rename(true); keyboard.focus(); root.edit-settings(); }
                 }
             }
         }
@@ -1560,6 +1907,7 @@ export component PresetPanel inherits Window {
         status-popup <=> root.draft-status-popup;
         tab <=> root.settings-tab;
         notice: root.settings-notice;
+        setup-lines: root.setup-lines;
         recording <=> root.recording-shortcut;
         error: root.settings-error;
         shortcut-warning: root.shortcut-warning;
@@ -1588,5 +1936,23 @@ export component PresetPanel inherits Window {
             root.close-dialogs();
         }
         cancel => { root.close-dialogs(); }
+    }
+    // HellLocker 1.9.6: the folder logo picker, opened from a folder header's tool,
+    // just under it at the list's right edge.
+    folder-logo := IconSlot {
+        x: preset-list.absolute-position.x + preset-list.width - self.width;
+        y: min(root.logo-y, root.height - 440px) - self.height;
+        ghost: true;
+        folder: true;
+        enabled: root.interactive;
+        current-id: root.logo-current;
+        choices: root.icon-choices;
+        groups-present: root.icon-groups;
+        search <=> root.icon-search;
+        group <=> root.icon-group;
+        opened => { root.request-icon-picker(); }
+        filter(text, group) => { root.request-icon-filter(text, group); }
+        chosen(id) => { root.request-folder-icon(root.logo-folder, id); keyboard.focus(); }
+        open-folder => { root.request-icons-folder(); }
     }
 }

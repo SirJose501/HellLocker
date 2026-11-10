@@ -68,6 +68,7 @@ pub(super) fn connect(
             "copy-info" => HelpAction::CopySystemInfo,
             "backup" => HelpAction::Backup,
             "restore" => HelpAction::Restore,
+            "check-setup" => HelpAction::CheckSetup,
             other => {
                 tracing::warn!(action = other, "unknown Help action");
                 return;
@@ -237,6 +238,7 @@ pub(super) fn open(panel: &PresetPanel, draft: SettingsDraft, presets: &[PresetR
             .unwrap_or_default() as i32,
     );
     panel.set_settings_tab(0);
+    panel.set_setup_lines(Default::default());
     panel.set_settings_notice("".into());
     panel.set_draft_background_opacity(draft.background_opacity as f32);
     panel.set_draft_ui_scale_index(

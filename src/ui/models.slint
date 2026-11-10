@@ -2,7 +2,8 @@
 export enum ActionScope { selected, stratagems, equipment }
 export enum PreviewRole { stratagem, booster, fallback-booster, helmet, armor, cape, primary, secondary, throwable }
 // HellLocker: icon / has-icon is an equipment item's picture, when saved with one.
-export struct PreviewRow { role: PreviewRole, number: int, picture: image, icon: image, has-icon: bool }
+// HellLocker 1.9.6: name: an equipment item's name as text ("" = show the picture of it).
+export struct PreviewRow { role: PreviewRole, number: int, picture: image, icon: image, has-icon: bool, name: string }
 export struct PreviewSection { items: [PreviewRow], error: string, ready: bool, saved: bool }
 export struct PresetRow {
     name: string,
@@ -18,9 +19,33 @@ export struct PresetRow {
     // HellLocker: where the row sits in the list, and whether it is inside a folder.
     top: length,
     in-folder: bool,
+    // HellLocker 1.9.4: starred; a copy shown in Favourites / Recently used (not
+    // draggable); the preset's notes.
+    favorite: bool,
+    pinned: bool,
+    notes: string,
+    // HellLocker 1.9.6: which of the list's two columns the row is in.
+    column: int,
+    // HellLocker 1.9.5: the two icons beside the name ("" id = the slot's default:
+    // the faction emblem for the first, nothing for the second).
+    icon-a-id: string,
+    icon-a: image,
+    has-icon-a: bool,
+    icon-b-id: string,
+    icon-b: image,
+    has-icon-b: bool,
 }
-// HellLocker: a folder header in the preset list.
-export struct FolderRow { id: string, name: string, count: string, open: bool, top: length }
+// HellLocker 1.9.5: one picture in the icon picker. group: 1 factions, 2 sub-factions,
+// 3 missions, 4 Stratagems, 5 Boosters, 6 planet conditions, 7 other, 8 the player's own; tag: the
+// faction / sub-faction / mission index, for its translated name.
+export struct IconChoice { id: string, name: string, group: int, tag: int, picture: image }
+// HellLocker: a folder header in the preset list. kind: 0 a folder, 1 Favourites,
+// 2 Recently used (those two are fixed: no renaming, deleting or dropping into).
+// HellLocker 1.9.5: icon-id / icon / has-icon: the folder's logo, when one is picked.
+export struct FolderRow { id: string, name: string, count: string, open: bool, top: length, kind: int, icon-id: string, icon: image, has-icon: bool }
 export struct ShortcutRow { name: string, label: string, number: string, binding: string, keys: [string], clash: bool }
 export enum MonitorRole { automatic, available, unavailable }
 export struct MonitorChoice { id: string, role: MonitorRole, name: string, number: string, primary: bool }
+// HellLocker 1.9.4: one line of Settings > Help > Check my setup.
+export enum SetupLevel { good, info, problem }
+export struct SetupLine { level: SetupLevel, title: string, detail: string }

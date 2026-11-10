@@ -230,6 +230,80 @@ impl AppController {
                     }
                 }
                 UiRequest::Help(action) => self.help(action),
+                UiRequest::SetFavorite { preset, favorite } => {
+                    match crate::config::save_preset_favorite(&self.paths.config, &preset, favorite)
+                    {
+                        Ok(()) => self.ui.set_favorite(&preset, favorite),
+                        Err(error) => {
+                            warn!(%preset, error = %format!("{error:#}"), "failed to save the star");
+                            self.ui
+                                .set_status(&format!("Could not save Favourites: {error:#}"));
+                        }
+                    }
+                }
+                UiRequest::SetNotes { preset, notes } => {
+                    match crate::config::save_preset_notes(&self.paths.config, &preset, &notes) {
+                        Ok(notes) => self.ui.set_notes(&preset, &notes),
+                        Err(error) => {
+                            warn!(%preset, error = %format!("{error:#}"), "failed to save notes");
+                            self.ui
+                                .set_status(&format!("Could not save the notes: {error:#}"));
+                        }
+                    }
+                }
+                UiRequest::Duplicate(preset) => {
+                    if let Err(error) = self.duplicate_preset(&preset) {
+                        warn!(%preset, error = %format!("{error:#}"), "failed to copy preset");
+                        self.ui
+                            .set_status(&format!("Could not copy the preset: {error:#}"));
+                    }
+                }
+                UiRequest::OpenPinned { recent, open } => {
+                    self.ui.set_pinned_open(recent, open);
+                    if let Err(error) =
+                        crate::config::save_pinned_open(&self.paths.config, recent, open)
+                    {
+                        warn!(error = %format!("{error:#}"), "failed to save the list sections");
+                    }
+                }
+                UiRequest::SetCompact(compact) => {
+                    self.ui.set_compact(compact)?;
+                    if let Err(error) = crate::config::save_compact(&self.paths.config, compact) {
+                        warn!(error = %format!("{error:#}"), "failed to save the collapsed panel");
+                    }
+                }
+                UiRequest::SetIcon { preset, slot, id } => {
+                    let mut icons = self.ui.icons_of(&preset);
+                    if let Some(icon) = icons.get_mut(slot) {
+                        *icon = crate::preset_icons::clean_id(&id);
+                    }
+                    match crate::config::save_preset_icons(&self.paths.config, &preset, &icons) {
+                        Ok(()) => self.ui.set_icons(&preset, icons),
+                        Err(error) => {
+                            warn!(%preset, error = %format!("{error:#}"), "failed to save the icons");
+                            self.ui
+                                .set_status(&format!("Could not save the icon: {error:#}"));
+                        }
+                    }
+                }
+                UiRequest::IconPicker => self.ui.refresh_icons(),
+                UiRequest::IconFilter { search, group } => self.ui.filter_icons(&search, group),
+                UiRequest::OpenIconsFolder => {
+                    let dir = self.ui.icons_dir();
+                    let result = std::fs::create_dir_all(&dir)
+                        .map_err(anyhow::Error::from)
+                        .and_then(|()| super::help::open_dir(&dir));
+                    if let Err(error) = result {
+                        warn!(error = %format!("{error:#}"), "could not open the icons folder");
+                        self.ui
+                            .set_status(&format!("Could not open the icons folder: {error:#}"));
+                    }
+                }
+                UiRequest::Stop => {
+                    if matches!(self.state, ActionState::Running) {
+                        crate::cancel::request();
+                    }
+                }
                 UiRequest::SetAttire(attire) => {
                     match crate::config::save_attire(&self.paths.config, attire) {
                         Ok(()) => {
@@ -287,6 +361,37 @@ impl AppController {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// HellLocker 1.9.4: a copy of a preset, with its saved loadout and pictures, just
+    /// below it. It gets no shortcut and is not starred.
+    fn duplicate_preset(&mut self, preset: &str) -> Result<()> {
+        ensure!(
+            matches!(self.state, ActionState::Idle),
+            "wait for the current action to finish"
+        );
+        let copy = self.ui.next_preset_name();
+        let label: String = format!("{} (copy)", self.ui.preset_title(preset))
+            .chars()
+            .take(60)
+            .collect();
+        crate::config::duplicate_preset(&self.paths.config, preset, &copy, &label)?;
+        if let Err(error) = crate::preset::duplicate(&self.paths.presets, preset, &copy) {
+            // Keep the config and the saved loadouts in step.
+            let _ = crate::config::remove_preset(&self.paths.config, &copy);
+            return Err(error);
+        }
+        self.shortcut_bindings
+            .presets
+            .insert(copy.clone(), String::new());
+        let layout = self.ui.add_copy(preset, copy.clone(), label);
+        if let Err(error) = crate::config::save_layout(&self.paths.config, &layout) {
+            warn!(preset = %copy, error = %format!("{error:#}"), "failed to save the preset list layout");
+        }
+        // The copy's previews (Stratagems and pictures) load like the others.
+        self.worker.send(Work::LoadPreviews)?;
+        tracing::info!(from = %preset, to = %copy, "preset copied");
         Ok(())
     }
 
@@ -429,6 +534,7 @@ impl AppController {
         // Unregister before the worker can inject its first key, not on the next tick.
         self.hotkeys.set_enabled(false)?;
         self.panel_hotkey.set_enabled(false)?;
+        self.running_preset = Some(preset.clone());
         self.worker.send(Work::Run {
             preset,
             command,

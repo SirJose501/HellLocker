@@ -58,6 +58,14 @@ pub fn initialize() {
     let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
 }
 
+/// HellLocker: whether the stop key (Backspace) is held down right now.
+pub fn stop_key_down() -> bool {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_BACK};
+    // The high bit is set while the key is down.
+    let state = unsafe { GetAsyncKeyState(i32::from(VK_BACK.0)) };
+    state < 0
+}
+
 pub fn notify_preset_saved() {
     unsafe {
         MessageBeep(MB_ICONINFORMATION).ok();

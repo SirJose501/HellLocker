@@ -28,6 +28,31 @@ impl AppController {
                 copy_text(self.ui.native_handle(), &text)
                     .map(|()| "System info copied. Paste it into your bug report.".to_string())
             }
+            HelpAction::CheckSetup => {
+                let findings = super::setup_check::run(&self.paths.presets);
+                let problems = findings
+                    .iter()
+                    .filter(|finding| finding.level == crate::ui::SetupLevel::Problem)
+                    .count();
+                for finding in &findings {
+                    info!(level = ?finding.level, title = %finding.title, "setup check");
+                }
+                self.ui.set_setup_lines(
+                    findings
+                        .into_iter()
+                        .map(|finding| crate::ui::SetupLine {
+                            level: finding.level,
+                            title: finding.title.into(),
+                            detail: finding.detail.into(),
+                        })
+                        .collect(),
+                );
+                Ok(match problems {
+                    0 => "Setup checked: nothing to fix.".to_string(),
+                    1 => "Setup checked: 1 thing to fix.".to_string(),
+                    n => format!("Setup checked: {n} things to fix."),
+                })
+            }
             HelpAction::Backup => self.backup(&data),
             HelpAction::Restore => self.restore(&data),
         };
@@ -185,6 +210,11 @@ fn displays() -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// HellLocker 1.9.5: open a folder in Explorer (the icons folder, from the panel).
+pub(super) fn open_dir(path: &Path) -> anyhow::Result<()> {
+    open_folder(path)
 }
 
 #[cfg(not(target_os = "windows"))]

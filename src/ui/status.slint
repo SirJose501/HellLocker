@@ -42,7 +42,7 @@ export component ActionStatus inherits Window {
     always-on-top: true;
     resize-border-width: 0px;
     width: 380px;
-    height: 112px;
+    height: 124px;
     background: Theme.background;
     in property <string> ui-font-family;
     default-font-family: root.ui-font-family;
@@ -54,6 +54,10 @@ export component ActionStatus inherits Window {
         : tone == StatusTone.warning ? Theme.warning
         : tone == StatusTone.error ? Theme.error : Theme.accent;
     in property <image> picture;
+    // HellLocker 1.9.4: how far the current step is (0 to 1; below 0 = no bar), and
+    // the key that stops it.
+    in property <float> progress: -1;
+    in property <string> stop-key;
     in property <[StatusItem]> stratagems;
     in property <StatusItem> booster;
     Rectangle { border-width: 1px; border-color: Theme.border; }
@@ -62,8 +66,38 @@ export component ActionStatus inherits Window {
         padding: 12px;
         spacing: 6px;
         alignment: start;
-        Text { text: UiText.preset-title(root.preset-label, root.preset-number); color: root.accent; font-size: 13px; height: 16px; overflow: elide; }
+        HorizontalLayout {
+            height: 16px;
+            spacing: 8px;
+            Text { text: UiText.preset-title(root.preset-label, root.preset-number); color: root.accent; font-size: 13px; overflow: elide; horizontal-stretch: 1; }
+            if (root.tone == StatusTone.working && root.stop-key != ""): HorizontalLayout {
+                spacing: 5px;
+                Rectangle {
+                    width: stop-text.preferred-width + 10px;
+                    height: 16px;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: Theme.inactive;
+                    background: Theme.control;
+                    stop-text := Text { text: root.stop-key; color: Theme.text; font-size: 10px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Text { text: @tr("to stop"); color: Theme.text-secondary; font-size: 11px; vertical-alignment: center; }
+            }
+        }
         Text { text: root.message; color: Theme.text; font-size: 13px; min-height: 16px; wrap: word-wrap; overflow: elide; }
+        if (root.progress >= 0): Rectangle {
+            height: 4px;
+            border-radius: 2px;
+            background: #ffffff1a;
+            Rectangle {
+                x: 0px;
+                width: parent.width * clamp(root.progress, 0, 1);
+                height: parent.height;
+                border-radius: 2px;
+                background: root.accent;
+                animate width { duration: 200ms; easing: ease-out; }
+            }
+        }
         if (root.stratagems.length > 0 || root.booster.item-id != ""): HorizontalLayout {
             height: 40px;
             spacing: 8px;

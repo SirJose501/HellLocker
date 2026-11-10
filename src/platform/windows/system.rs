@@ -268,3 +268,101 @@ pub fn confirm(owner: Option<isize>, title: &str, message: &str) -> bool {
     };
     answer == IDOK
 }
+
+/// HellLocker 1.9.4: how the game's window sits on its display, for the setup check.
+pub struct GameWindowLayout {
+    /// The game's drawing area, in pixels.
+    pub client: (u32, u32),
+    /// The display it is on, in pixels.
+    pub monitor: (u32, u32),
+    /// A title bar means it is in a normal window, not borderless or fullscreen.
+    pub has_title_bar: bool,
+}
+
+pub fn game_window_layout(handle: isize) -> Option<GameWindowLayout> {
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GWL_STYLE, GetClientRect, GetWindowLongPtrW, WS_CAPTION,
+    };
+    let hwnd = HWND(handle as *mut _);
+    let mut client = RECT::default();
+    unsafe { GetClientRect(hwnd, &mut client) }.ok()?;
+    let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } as u32;
+    let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+    let mut info = MONITORINFO {
+        cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    if !unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
+        return None;
+    }
+    let screen = info.rcMonitor;
+    Some(GameWindowLayout {
+        client: (
+            (client.right - client.left).max(0) as u32,
+            (client.bottom - client.top).max(0) as u32,
+        ),
+        monitor: (
+            (screen.right - screen.left).max(0) as u32,
+            (screen.bottom - screen.top).max(0) as u32,
+        ),
+        has_title_bar: style & WS_CAPTION.0 == WS_CAPTION.0,
+    })
+}
+
+/// The file names of running programs (e.g. "RTSS.exe"), for the setup check.
+pub fn running_programs() -> Vec<String> {
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+        TH32CS_SNAPPROCESS,
+    };
+    let mut names = Vec::new();
+    let Ok(snapshot) = (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }) else {
+        return names;
+    };
+    let mut entry = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+    if unsafe { Process32FirstW(snapshot, &mut entry) }.is_ok() {
+        loop {
+            let len = entry
+                .szExeFile
+                .iter()
+                .position(|&unit| unit == 0)
+                .unwrap_or(entry.szExeFile.len());
+            names.push(String::from_utf16_lossy(&entry.szExeFile[..len]));
+            if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
+                break;
+            }
+        }
+    }
+    let _ = unsafe { windows::Win32::Foundation::CloseHandle(snapshot) };
+    names
+}
+
+/// HellLocker 1.9.7: Wine's version when HellLocker runs under Wine or Proton (Linux,
+/// Steam Deck), from ntdll's `wine_get_version`.
+pub fn wine_version() -> Option<String> {
+    static VERSION: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    VERSION
+        .get_or_init(|| unsafe {
+            use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+            use windows::core::{PCSTR, w};
+            let ntdll = GetModuleHandleW(w!("ntdll.dll")).ok()?;
+            let get = GetProcAddress(ntdll, PCSTR(c"wine_get_version".as_ptr().cast()))?;
+            let get: unsafe extern "C" fn() -> *const std::ffi::c_char = std::mem::transmute(get);
+            let text = get();
+            Some(if text.is_null() {
+                "unknown".to_owned()
+            } else {
+                std::ffi::CStr::from_ptr(text)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+        })
+        .clone()
+}

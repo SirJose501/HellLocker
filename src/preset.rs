@@ -1,5 +1,6 @@
 pub(crate) mod equipment;
 pub(crate) mod library;
+pub(crate) mod names;
 pub(crate) mod preview;
 pub(crate) mod stratagems;
 
@@ -87,6 +88,80 @@ pub fn remove(path: &Path, name: &str) -> Result<()> {
         Err(error) => Err(error)
             .with_context(|| format!("failed to remove preset templates {}", directory.display())),
     }
+}
+
+/// HellLocker 1.9.4: copy `from`'s saved Stratagems and equipment, with their pictures,
+/// to the new preset `to`. Nothing to copy (an unsaved preset) is fine.
+pub fn duplicate(path: &Path, from: &str, to: &str) -> Result<()> {
+    validate_preset_name(from)?;
+    validate_preset_name(to)?;
+    if !path.exists() {
+        return Ok(());
+    }
+    let mut file = load_preset_file(path)?;
+    ensure!(
+        !file.presets.contains_key(to) && !file.equipment.contains_key(to),
+        "preset {to} already has saved content"
+    );
+    // Saved entries point at their pictures by path; point the copy at its own.
+    let old_prefix = format!("{LOCAL_TEMPLATES_DIR}/{from}/");
+    let new_prefix = format!("{LOCAL_TEMPLATES_DIR}/{to}/");
+    let repoint = |value: serde_json::Value| repoint_paths(value, &old_prefix, &new_prefix);
+    if let Some(stratagems) = file.presets.get(from) {
+        let copy = serde_json::from_value(repoint(serde_json::to_value(stratagems)?))?;
+        file.presets.insert(to.to_owned(), copy);
+    }
+    if let Some(equipment) = file.equipment.get(from) {
+        let copy = serde_json::from_value(repoint(serde_json::to_value(equipment)?))?;
+        file.equipment.insert(to.to_owned(), copy);
+    }
+    let source = resolve_template_path(path, &format!("{LOCAL_TEMPLATES_DIR}/{from}"))?;
+    let target = resolve_template_path(path, &format!("{LOCAL_TEMPLATES_DIR}/{to}"))?;
+    if source.is_dir() {
+        if target.exists() {
+            fs::remove_dir_all(&target)
+                .with_context(|| format!("failed to clear {}", target.display()))?;
+        }
+        copy_dir(&source, &target)
+            .with_context(|| format!("failed to copy the pictures of {from}"))?;
+    }
+    write_preset_file(path, &file)
+}
+
+fn repoint_paths(value: serde_json::Value, old: &str, new: &str) -> serde_json::Value {
+    use serde_json::Value;
+    match value {
+        Value::String(text) => Value::String(match text.strip_prefix(old) {
+            Some(rest) => format!("{new}{rest}"),
+            None => text,
+        }),
+        Value::Array(items) => Value::Array(
+            items
+                .into_iter()
+                .map(|item| repoint_paths(item, old, new))
+                .collect(),
+        ),
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(key, item)| (key, repoint_paths(item, old, new)))
+                .collect(),
+        ),
+        other => other,
+    }
+}
+
+fn copy_dir(from: &Path, to: &Path) -> Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn archive_legacy_preset_file(path: &Path) -> Result<Option<PathBuf>> {
@@ -202,4 +277,31 @@ fn save_template_image(presets_path: &Path, relative: &str, image: &RgbaImage) -
     image
         .save(&destination)
         .with_context(|| format!("failed to save local template {}", destination.display()))
+}
+
+#[cfg(test)]
+mod duplicate_tests {
+    use super::*;
+
+    #[test]
+    fn picture_paths_follow_the_copy() {
+        let value = serde_json::json!({
+            "name": "local_templates/preset_3/equipment/1-name.png",
+            "other": "local_templates/preset_30/x.png",
+            "list": ["local_templates/preset_3/a.png", 4],
+        });
+        let copied = repoint_paths(
+            value,
+            "local_templates/preset_3/",
+            "local_templates/preset_9/",
+        );
+        assert_eq!(
+            copied["name"],
+            "local_templates/preset_9/equipment/1-name.png"
+        );
+        // Another preset whose name starts the same is left alone.
+        assert_eq!(copied["other"], "local_templates/preset_30/x.png");
+        assert_eq!(copied["list"][0], "local_templates/preset_9/a.png");
+        assert_eq!(copied["list"][1], 4);
+    }
 }

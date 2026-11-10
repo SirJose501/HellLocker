@@ -10,7 +10,7 @@ use crate::{
     game_settings::GameColorSettings,
     item::EquipmentKind,
     loadout::equipment::{ApplyProgress, EquipmentSet, Session},
-    preset::equipment as storage,
+    preset::{equipment as storage, library::ScanState},
     vision::equipment::EquipmentObserver,
     window::WindowTarget,
 };
@@ -79,18 +79,39 @@ pub(super) fn scan(
     let events = context.events;
     let cache = &mut *context.equipment_cache;
     let mut total = 0;
+    // HellLocker 1.9.4: carry on from an unfinished scan (same game size, recent).
+    let mut state = ScanState::start(presets, capture.output_size());
+    if state.resuming() {
+        tracing::info!(done = ?state.done, "resuming an unfinished equipment scan");
+    }
     with_session(capture, target, colors, context.evidence, |session| {
         for kind in EquipmentKind::ALL {
-            events.emit(AppEvent::ScanProgress { kind, items: 0 });
-            let batch = session.scan_kind(kind, cache, |items| {
+            if state.is_done(kind) {
+                tracing::info!(?kind, "already scanned in the unfinished scan; skipped");
+                continue;
+            }
+            let mut batch = state.batch(presets, kind);
+            events.emit(AppEvent::ScanProgress {
+                kind,
+                items: batch.len(),
+            });
+            let walked = session.scan_kind(kind, &mut batch, cache, |items| {
                 events.emit(AppEvent::ScanProgress { kind, items });
-            })?;
+            });
+            if let Err(error) = walked {
+                state.stop(presets, &batch);
+                return Err(error.context(
+                    "the scan stopped; press Scan equipment again to carry on from here",
+                ));
+            }
             crate::preset::library::save_batch(presets, &batch)
                 .with_context(|| format!("failed to save the scanned {kind:?} pictures"))?;
+            state.finish(presets, kind);
             total += batch.len();
         }
         Ok(())
     })?;
+    ScanState::clear(presets);
     tracing::info!(items = total, "equipment scan saved");
     Ok((
         PresetActionOutcome::Saved,

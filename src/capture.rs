@@ -84,6 +84,8 @@ impl CaptureRegion<'_> {
     /// UI color space after game brightness/HDR correction. Native pixel layout,
     /// transfer functions and compositor white levels stay in the backend.
     pub fn capture(&mut self) -> Result<CapturedFrame> {
+        // HellLocker: every wait for the game captures, so a requested stop ends here.
+        crate::cancel::check()?;
         let image = self
             .source
             .platform

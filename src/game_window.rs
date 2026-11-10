@@ -14,6 +14,14 @@ pub fn is_game_foreground() -> bool {
 }
 
 pub fn find_game_window() -> Result<WindowIdentity> {
+    // HellLocker 1.9.7: under Wine / Proton, a running game is only visible from inside
+    // its own prefix.
+    #[cfg(target_os = "windows")]
+    if crate::platform::system::wine_version().is_some() {
+        return WindowIdentity::find_by_title(GAME_WINDOW_TITLE).context(
+            "could not find Helldivers. On Linux, start HellLocker inside the game's Proton prefix: protontricks-launch --appid 553850 HellLocker.exe",
+        );
+    }
     WindowIdentity::find_by_title(GAME_WINDOW_TITLE)
         .context("could not find Helldivers; make sure the game is running")
 }

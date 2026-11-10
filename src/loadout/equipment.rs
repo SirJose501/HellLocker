@@ -205,18 +205,21 @@ impl<'a> Session<'a> {
 
     /// HellLocker: Scan equipment for one slot. Opens its list, walks every item, and
     /// keeps each item's name and loaded picture. Returns to the six-card page.
+    /// Pictures go into `batch`, which the caller keeps if the walk stops partway;
+    /// items already in it (kept from an unfinished scan) are passed without waiting
+    /// for their pictures.
     pub fn scan_kind(
         &mut self,
         kind: EquipmentKind,
+        batch: &mut crate::preset::library::ScanBatch,
         cache: &mut EquipmentCache,
         mut found: impl FnMut(usize),
-    ) -> Result<crate::preset::library::ScanBatch> {
+    ) -> Result<()> {
         let span = tracing::info_span!("equipment_scan", ?kind);
         let _guard = span.enter();
         self.check_active()?;
         self.open(kind)
             .with_context(|| format!("failed to open {kind:?} for scanning"))?;
-        let mut batch = crate::preset::library::ScanBatch::new(kind, self.client_size);
         let started = Instant::now();
         scan_walk(self, kind, cache, |session| {
             if session.page.ready() && batch.is_new(&session.page.name) {
@@ -233,7 +236,7 @@ impl<'a> Session<'a> {
             "equipment slot scanned"
         );
         self.return_to_entry()?;
-        Ok(batch)
+        Ok(())
     }
 
     /// HellLocker: the tile once the game has finished loading its picture. While it

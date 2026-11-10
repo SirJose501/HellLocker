@@ -84,6 +84,7 @@ impl<'a> AutomationSession<'a> {
         parameters: serde_json::Value,
         send: impl FnOnce(&mut InputSession) -> Result<()>,
     ) -> Result<()> {
+        crate::cancel::check()?;
         let started = Instant::now();
         let result = send(&mut self.input);
         // Never encode/write images or record between injected down/up events.

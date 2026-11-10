@@ -1,0 +1,3 @@
+Icons supplied by the project owner from the Helldivers Wiki
+(https://helldivers.wiki.gg/wiki/Category:Helldivers_2_-_Icons; many "Traced by Dogo314"),
+rendered to 96 x 96 PNG for HellLocker. names.tsv sets their order and names.

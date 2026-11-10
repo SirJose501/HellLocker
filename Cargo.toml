@@ -1,6 +1,6 @@
 [package]
 name = "hd2-preset-helper"
-version = "1.9.3"
+version = "1.9.7"
 edition = "2024"
 build = "build.rs"
 description = "HellLocker: faction and mission loadout presets for Helldivers 2 (based on HD2 Preset Helper)"
@@ -76,6 +76,10 @@ windows = { version = "0.62.2", features = [
     "Win32_System_Memory",
     "Win32_UI_Shell",
     "Win32_UI_Controls_Dialogs",
+    "Media_Ocr",
+    "Graphics_Imaging",
+    "Storage_Streams",
+    "Security_Cryptography",
 ] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]

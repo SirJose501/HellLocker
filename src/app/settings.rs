@@ -8,6 +8,12 @@ use crate::{config::SettingsDraft, input::Hotkeys, preset_action::PresetActionOp
 impl AppController {
     pub(super) fn open_settings(&self) {
         if self.exiting || !matches!(self.state, ActionState::Idle) || self.ui.is_editing() {
+            // HellLocker 1.9.6: say why, for bug reports.
+            tracing::info!(
+                busy = !matches!(self.state, ActionState::Idle),
+                editing = self.ui.is_editing(),
+                "settings not opened"
+            );
             return;
         }
         self.ui.open_settings(SettingsDraft {

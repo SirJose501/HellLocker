@@ -1,0 +1,3 @@
+Stratagem icons: SVGs from https://github.com/nvigneux/Helldivers-2-Stratagems-icons-svg
+(made for Stratagem Hero Trainer; "Feel free to use them in your own projects"),
+rendered to 96 x 96 PNG for HellLocker. names.tsv sets their order and names.

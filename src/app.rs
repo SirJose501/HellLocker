@@ -2,6 +2,7 @@ mod failure;
 mod help;
 mod panel;
 mod settings;
+mod setup_check;
 mod worker;
 
 use std::path::Path;
@@ -96,6 +97,9 @@ pub fn run() -> Result<()> {
     info!(
         version = env!("CARGO_PKG_VERSION"),
         diagnostics = cfg!(feature = "diagnostics"),
+        wine = crate::platform::system::wine_version()
+            .as_deref()
+            .unwrap_or("no"),
         "application starting"
     );
     // HellLocker: a restore picked in Settings > Help is swapped in here.
@@ -174,6 +178,9 @@ fn run_with_config(config: AppConfig, paths: &AppPaths) -> Result<()> {
             faction: slot.faction,
             subfaction: slot.subfaction,
             mission: slot.mission,
+            favorite: slot.favorite,
+            notes: slot.notes.clone(),
+            icons: crate::preset_icons::slots(&slot.icons),
         })
         .collect();
     let saved_position = config.ui.panel_position();
@@ -196,6 +203,18 @@ fn run_with_config(config: AppConfig, paths: &AppPaths) -> Result<()> {
         config.ui.view_subfaction,
         config.ui.view_mission,
     );
+    ui.set_pinned(
+        config
+            .presets
+            .recent
+            .iter()
+            .filter(|name| config.presets.slots.contains_key(name.as_str()))
+            .cloned()
+            .collect(),
+        config.presets.favorites_open,
+        config.presets.recent_open,
+    );
+    ui.set_compact(config.ui.compact)?;
     ui.set_saved_position(saved_position);
     ui.set_background_opacity(background_opacity);
     ui.set_status_popup(config.ui.status_popup)?;
@@ -222,6 +241,7 @@ fn run_with_config(config: AppConfig, paths: &AppPaths) -> Result<()> {
         status_popup: config.ui.status_popup,
         save_sound: config.ui.save_sound,
         reveal_after_action: false,
+        running_preset: None,
         ui,
     };
     info!(
@@ -287,12 +307,18 @@ struct AppController {
     save_sound: bool,
     /// HellLocker: the panel was hidden for an action and should come back afterwards.
     reveal_after_action: bool,
+    /// HellLocker 1.9.4: the preset of the running action, for Recently used.
+    running_preset: Option<String>,
 }
 
 impl AppController {
     fn tick(&mut self) -> Result<bool> {
         // Handle UI requests before shortcuts that use the updated settings.
         self.poll_ui()?;
+        // HellLocker 1.9.4: the stop key ends a running action.
+        if matches!(self.state, ActionState::Running) && platform::stop_key_down() {
+            crate::cancel::request();
+        }
         let game_active = game_window::is_game_foreground();
         let panel_active = self.ui.is_panel_active();
         let shortcuts_enabled = !self.exiting
@@ -387,7 +413,19 @@ impl AppController {
                         self.ui.preview_failed(&error);
                     }
                 },
-                Ok(WorkerEvent::Finished { saved }) => {
+                Ok(WorkerEvent::Finished { saved, applied }) => {
+                    // HellLocker 1.9.4: an applied preset goes to the top of Recently used.
+                    if let Some(preset) = self.running_preset.take()
+                        && applied
+                        && preset != crate::preset::library::SCAN_PRESET
+                    {
+                        let recent = crate::config::push_recent(self.ui.recent(), &preset);
+                        if let Err(error) = crate::config::save_recent(&self.paths.config, &recent)
+                        {
+                            warn!(error = %format!("{error:#}"), "could not save Recently used");
+                        }
+                        self.ui.set_recent(recent);
+                    }
                     self.hotkeys.discard_pending();
                     self.panel_hotkey.discard_pending();
                     self.state = ActionState::Idle;

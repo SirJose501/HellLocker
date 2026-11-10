@@ -235,3 +235,366 @@ msgstr "이전 오류 알림 닫기"
 # Tray.
 msgid "Exit"
 msgstr "종료"
+
+msgid "Favourites"
+msgstr "즐겨찾기"
+
+msgid "Recently used"
+msgstr "최근 사용"
+
+msgid "Folder name"
+msgstr "폴더 이름"
+
+msgid "Rename folder"
+msgstr "폴더 이름 변경"
+
+msgid "Delete folder (its presets are kept)"
+msgstr "폴더 삭제 (안의 프리셋은 유지됨)"
+
+msgid "Scan equipment"
+msgstr "장비 스캔"
+
+msgid "Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates."
+msgstr "모든 장비 목록을 한 번씩 훑어 각 아이템의 그림을 저장해 프리셋 저장을 빠르게 합니다. 장비 구성 페이지에서 시작하고 몇 분 동안 게임을 건드리지 마세요. 게임 업데이트 후 다시 실행하세요."
+
+msgid "Show / hide"
+msgstr "표시 / 숨기기"
+
+msgid "Global shortcut: shows or hides the panel from anywhere, also in game. Change it in Settings."
+msgstr "전역 단축키: 게임 안을 포함해 어디서든 패널을 표시하거나 숨깁니다. 설정에서 바꿀 수 있습니다."
+
+msgid "All factions"
+msgstr "모든 세력"
+
+msgid "Pick a faction first"
+msgstr "먼저 세력을 고르세요"
+
+msgid "All sub-factions"
+msgstr "모든 하위 세력"
+
+msgid "All missions"
+msgstr "모든 임무"
+
+msgid "Search presets"
+msgstr "프리셋 검색"
+
+msgid "Clear search"
+msgstr "검색 지우기"
+
+msgid "+ New folder"
+msgstr "+ 새 폴더"
+
+msgid "Favourite"
+msgstr "즐겨찾기"
+
+msgid "Remove from Favourites"
+msgstr "즐겨찾기에서 제거"
+
+msgid "Add to Favourites"
+msgstr "즐겨찾기에 추가"
+
+msgid "↑↓ / W S  ·  A / D faction  ·  Q / E mission"
+msgstr "↑↓ / W S  ·  A / D 세력  ·  Q / E 임무"
+
+msgid "Keys while the panel has focus: select a preset, change the faction filter, change the mission filter"
+msgstr "패널에 포커스가 있을 때의 키: 프리셋 선택, 세력 필터 변경, 임무 필터 변경"
+
+msgid "Show the preset details"
+msgstr "프리셋 세부 정보 표시"
+
+msgid "Hide the preset details"
+msgstr "프리셋 세부 정보 숨기기"
+
+msgid "Duplicate preset (Ctrl+D)"
+msgstr "프리셋 복제 (Ctrl+D)"
+
+msgid "Faction"
+msgstr "세력"
+
+msgid "Sub-faction"
+msgstr "하위 세력"
+
+msgid "Mission"
+msgstr "임무"
+
+msgid "Unticked: left as they are when saving and applying"
+msgstr "체크 해제: 저장하고 적용할 때 그대로 둡니다"
+
+msgid "No presets match the search."
+msgstr "검색과 일치하는 프리셋이 없습니다."
+
+msgid "No presets for this filter yet. Use + New preset to make one."
+msgstr "이 필터에 맞는 프리셋이 아직 없습니다. + 새 프리셋으로 만드세요."
+
+msgid "Notes"
+msgstr "메모"
+
+msgid "Saved when you click away"
+msgstr "다른 곳을 클릭하면 저장됩니다"
+
+msgid "Add notes: what this loadout is for, what to bring, who runs what…"
+msgstr "메모 추가: 이 구성의 용도, 가져갈 것, 누가 무엇을 맡는지…"
+
+msgid "Stop (Backspace)"
+msgstr "중지 (Backspace)"
+
+msgid "SETTINGS"
+msgstr "설정"
+
+msgid "Close"
+msgstr "닫기"
+
+msgid "Gameplay"
+msgstr "게임플레이"
+
+msgid "Panel"
+msgstr "패널"
+
+msgid "Help"
+msgstr "도움말"
+
+msgid "APPLYING PRESETS"
+msgstr "프리셋 적용"
+
+msgid "Only when all four Stratagem slots start empty."
+msgstr "스트라타젬 슬롯 네 개가 처음에 모두 비어 있을 때만."
+
+msgid "Automatic Readying"
+msgstr "자동 준비"
+
+msgid "Ready up after a preset with a Booster is applied."
+msgstr "부스터가 있는 프리셋을 적용한 뒤 준비 완료로 만듭니다."
+
+msgid "Patient mode"
+msgstr "인내 모드"
+
+msgid "Waits up to three times longer for the game. Turn on if menus open slowly or the game hitches and presets stop partway."
+msgstr "게임을 최대 세 배 더 오래 기다립니다. 메뉴가 늦게 열리거나 게임이 끊겨 프리셋이 중간에 멈추면 켜세요."
+
+msgid "SAVING PRESETS"
+msgstr "프리셋 저장"
+
+msgid "Booster Fallbacking"
+msgstr "예비 부스터"
+
+msgid "If the saved Booster is taken, wait for you to pick another and save it as the fallback."
+msgstr "저장한 부스터가 이미 사용 중이면 다른 부스터를 고를 때까지 기다렸다가 예비로 저장합니다."
+
+msgid "Sound when saved"
+msgstr "저장 시 소리"
+
+msgid "A short Windows chime when a preset has been saved."
+msgstr "프리셋이 저장되면 짧은 Windows 알림음을 냅니다."
+
+msgid "Reset this tab"
+msgstr "이 탭 초기화"
+
+msgid "BEHAVIOUR"
+msgstr "동작"
+
+msgid "Keep the panel open"
+msgstr "패널을 열어 두기"
+
+msgid "Stays up when you click the game, so it can sit on another monitor."
+msgstr "게임을 클릭해도 계속 보여서 다른 모니터에 둘 수 있습니다."
+
+msgid "Start with Windows"
+msgstr "Windows와 함께 시작"
+
+msgid "Starts HellLocker in the tray when you sign in."
+msgstr "로그인할 때 HellLocker를 알림 영역에서 시작합니다."
+
+msgid "Where the panel and the status pop-up appear."
+msgstr "패널과 상태 알림이 나타나는 곳."
+
+msgid "Status pop-up"
+msgstr "상태 알림"
+
+msgid "The small notice that shows progress while the panel is hidden."
+msgstr "패널이 숨겨져 있을 때 진행 상황을 보여 주는 작은 알림."
+
+msgid "Top right"
+msgstr "오른쪽 위"
+
+msgid "Top left"
+msgstr "왼쪽 위"
+
+msgid "Off"
+msgstr "끔"
+
+msgid "LOOK"
+msgstr "모양"
+
+msgid "Panel size"
+msgstr "패널 크기"
+
+msgid "On top of Windows display scaling. Applies after a restart."
+msgstr "Windows 디스플레이 배율에 더해 적용됩니다. 다시 시작하면 반영됩니다."
+
+msgid "Background"
+msgstr "배경"
+
+msgid "How solid the background art is. Shows as you drag."
+msgstr "배경 그림의 불투명도. 끌어서 바로 확인할 수 있습니다."
+
+msgid "Follow system, or pick one."
+msgstr "시스템 설정을 따르거나 하나를 고르세요."
+
+msgid "BEFORE YOU PLAY"
+msgstr "플레이하기 전에"
+
+msgid "Check my setup"
+msgstr "설정 점검"
+
+msgid "Looks at the game's window and resolution, HDR, overlays and the equipment scan, and says what to change. Nothing is clicked."
+msgstr "게임 창과 해상도, HDR, 오버레이, 장비 스캔을 살펴보고 무엇을 바꿔야 하는지 알려 줍니다. 아무것도 클릭하지 않습니다."
+
+msgid "Check again"
+msgstr "다시 점검"
+
+msgid "Check"
+msgstr "점검"
+
+msgid "REPORT A PROBLEM"
+msgstr "문제 신고"
+
+msgid "Report a bug"
+msgstr "버그 신고"
+
+msgid "Opens the Bugs tab on the HellLocker Nexus page. Say what you did, and attach app.log and last_failure.zip from the data folder."
+msgstr "Nexus의 HellLocker 페이지에서 Bugs 탭을 엽니다. 무엇을 했는지 적고 데이터 폴더의 app.log와 last_failure.zip을 첨부하세요."
+
+msgid "Open Bugs tab"
+msgstr "Bugs 탭 열기"
+
+msgid "Data folder"
+msgstr "데이터 폴더"
+
+msgid "Your presets, settings, app.log and last_failure.zip."
+msgstr "프리셋, 설정, app.log, last_failure.zip."
+
+msgid "Open folder"
+msgstr "폴더 열기"
+
+msgid "System info"
+msgstr "시스템 정보"
+
+msgid "Copies your HellLocker version, Windows version, displays and game display settings, to paste into a bug report. No names or file paths."
+msgstr "HellLocker 버전, Windows 버전, 디스플레이, 게임 화면 설정을 복사해 버그 신고에 붙여 넣을 수 있게 합니다. 이름이나 파일 경로는 들어가지 않습니다."
+
+msgid "YOUR PRESETS"
+msgstr "내 프리셋"
+
+msgid "Back up presets"
+msgstr "프리셋 백업"
+
+msgid "Saves every preset, its pictures and your settings into one zip file."
+msgstr "모든 프리셋과 그림, 설정을 zip 파일 하나에 저장합니다."
+
+msgid "Save backup…"
+msgstr "백업 저장…"
+
+msgid "Restore from a backup"
+msgstr "백업에서 복원"
+
+msgid "Replaces your presets and settings with a backup, then restarts HellLocker. What you have now is kept in backups\\before-restore.zip."
+msgstr "프리셋과 설정을 백업으로 바꾸고 HellLocker를 다시 시작합니다. 지금 내용은 backups\\before-restore.zip에 보관됩니다."
+
+msgid "Restore…"
+msgstr "복원…"
+
+msgid "Shortcuts pause while you record one."
+msgstr "단축키를 기록하는 동안 다른 단축키는 일시 중지됩니다."
+
+msgid "These act right away; Save is only for settings."
+msgstr "바로 실행됩니다. 저장은 설정에만 적용됩니다."
+
+msgid "Changes apply when you press Save."
+msgstr "저장을 누르면 변경 사항이 적용됩니다."
+
+msgid "Also used by another shortcut"
+msgstr "다른 단축키에서도 사용 중"
+
+msgid "Esc cancels"
+msgstr "Esc로 취소"
+
+msgid "Click a shortcut, then press your keys. The panel shortcut works anywhere; preset shortcuts work in the game or panel."
+msgstr "단축키를 클릭한 다음 키를 누르세요. 패널 단축키는 어디서나, 프리셋 단축키는 게임이나 패널에서 작동합니다."
+
+msgid "Num0–Num9 are keypad keys: keep Num Lock on and avoid Shift with them."
+msgstr "Num0–Num9는 숫자 키패드 키입니다. Num Lock을 켜 두고 Shift와 함께 쓰지 마세요."
+
+msgid "to stop"
+msgstr "로 중지"
+
+msgid "Icons"
+msgstr "아이콘"
+
+msgid "First icon"
+msgstr "첫 번째 아이콘"
+
+msgid "Second icon"
+msgstr "두 번째 아이콘"
+
+msgid "First icon: shown beside the preset's name. Click to change it."
+msgstr "첫 번째 아이콘: 프리셋 이름 옆에 표시됩니다. 클릭해서 바꿉니다."
+
+msgid "Second icon: shown beside the first. Click to pick one."
+msgstr "두 번째 아이콘: 첫 번째 아이콘 옆에 표시됩니다. 클릭해서 고릅니다."
+
+msgid "Search icons"
+msgstr "아이콘 검색"
+
+msgid "All"
+msgstr "전체"
+
+msgid "Factions"
+msgstr "세력"
+
+msgid "Sub-factions"
+msgstr "하위 세력"
+
+msgid "Missions"
+msgstr "임무"
+
+msgid "Stratagems"
+msgstr "스트라타젬"
+
+msgid "Boosters"
+msgstr "부스터"
+
+msgid "Other"
+msgstr "기타"
+
+msgid "Your icons"
+msgstr "내 아이콘"
+
+msgid "Default"
+msgstr "기본"
+
+msgid "None"
+msgstr "없음"
+
+msgid "The faction's emblem (the sub-faction's when it has one)"
+msgstr "세력 문장 (하위 세력을 골랐다면 그 문장)"
+
+msgid "No second icon"
+msgstr "두 번째 아이콘 없음"
+
+msgid "No icons match the search."
+msgstr "검색과 일치하는 아이콘이 없습니다."
+
+msgid "Add your own: PNG pictures in the icons folder."
+msgstr "직접 추가: icons 폴더에 PNG 그림을 넣으세요."
+
+msgid "Planet conditions"
+msgstr "행성 환경"
+
+msgid "Folder logo"
+msgstr "폴더 로고"
+
+msgid "Change the folder's logo"
+msgstr "폴더 로고 바꾸기"
+
+msgid "The folder symbol"
+msgstr "폴더 기호"

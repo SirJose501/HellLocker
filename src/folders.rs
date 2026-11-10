@@ -13,6 +13,9 @@ pub struct PresetFolder {
     pub name: String,
     pub open: bool,
     pub presets: Vec<String>,
+    /// HellLocker 1.9.6: the folder's logo (a crate::preset_icons id; "" = the folder
+    /// symbol).
+    pub icon: String,
 }
 
 impl Default for PresetFolder {
@@ -22,6 +25,7 @@ impl Default for PresetFolder {
             name: String::new(),
             open: true,
             presets: Vec::new(),
+            icon: String::new(),
         }
     }
 }
@@ -75,6 +79,7 @@ impl Layout {
                 .filter_map(|name| take(name, &mut seen))
                 .collect();
             folder.name = clean_name(&folder.name);
+            folder.icon = crate::preset_icons::clean_id(&folder.icon);
             if folder.id.is_empty() || used_ids.contains(&folder.id) {
                 folder.id = next_id(&used_ids);
             }
@@ -156,6 +161,18 @@ impl Layout {
         let folder = self.folders.remove(index);
         self.loose.splice(0..0, folder.presets);
         true
+    }
+
+    /// HellLocker 1.9.6: a folder's logo ("" = the folder symbol).
+    pub fn set_icon(&mut self, id: &str, icon: &str) -> bool {
+        let icon = crate::preset_icons::clean_id(icon);
+        match self.folders.iter_mut().find(|folder| folder.id == id) {
+            Some(folder) if folder.icon != icon => {
+                folder.icon = icon;
+                true
+            }
+            _ => false,
+        }
     }
 
     pub fn set_open(&mut self, id: &str, open: bool) -> bool {
@@ -269,6 +286,7 @@ mod tests {
                 name: "Bugs".into(),
                 open: false,
                 presets: vec!["preset_2".into(), "preset_1".into()],
+                ..Default::default()
             }],
             vec!["preset_4".into()],
             ["preset_1", "preset_2", "preset_3", "preset_4"],

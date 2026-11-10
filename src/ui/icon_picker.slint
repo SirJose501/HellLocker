@@ -1,0 +1,384 @@
+// HellLocker 1.9.5: a preset's icon slot on the right side, and the picker it opens.
+import { Theme } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { IconChoice } from "models.slint";
+import { FactionIcon, Subfactions } from "icons.slint";
+import { UiText } from "text.slint";
+
+// One picture in the picker or a slot: a chosen icon, the default emblem (slot 1), an
+// empty slot (slot 2), or a folder's symbol.
+component SlotPicture inherits Rectangle {
+    in property <bool> has-picture;
+    in property <image> picture;
+    in property <bool> emblem;
+    in property <bool> folder;
+    in property <int> faction;
+    in property <int> subfaction;
+    if (root.has-picture): Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.picture;
+        image-fit: contain;
+    }
+    if (!root.has-picture && root.folder): Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: "M 2.5 6 L 2.5 19 L 21.5 19 L 21.5 8 L 11 8 L 9 5.5 L 3 5.5 Z";
+        fill: #ffd21f33;
+        stroke: Theme.button-outline;
+        stroke-width: 1.6px;
+    }
+    if (!root.has-picture && !root.folder && root.emblem && root.subfaction != 0): Image {
+        width: parent.width;
+        height: parent.height;
+        source: Subfactions.image(root.subfaction);
+        image-fit: contain;
+    }
+    if (!root.has-picture && !root.folder && root.emblem && root.subfaction == 0): FactionIcon {
+        width: parent.width;
+        height: parent.height;
+        faction: root.faction;
+    }
+    // An empty second slot: a dashed-looking ring.
+    if (!root.has-picture && !root.folder && !root.emblem): Path {
+        width: parent.width * 0.7;
+        height: parent.height * 0.7;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: "M 12 3 L 12 5 M 12 19 L 12 21 M 3 12 L 5 12 M 19 12 L 21 12 M 5.6 5.6 L 7 7 M 17 17 L 18.4 18.4 M 5.6 18.4 L 7 17 M 17 7 L 18.4 5.6";
+        fill: transparent;
+        stroke: Theme.inactive;
+        stroke-width: 1.5px;
+    }
+}
+
+// HellLocker 1.9.6: the corner brackets of the Settings window's frame.
+component PickerBracket inherits Path {
+    in property <bool> right;
+    in property <bool> bottom;
+    width: 16px;
+    height: 16px;
+    viewbox-width: 20;
+    viewbox-height: 20;
+    fill: transparent;
+    stroke: Theme.button-outline;
+    stroke-width: 3px;
+    commands: root.right
+        ? (root.bottom ? "M 1.5 18.5 L 18.5 18.5 L 18.5 1.5" : "M 1.5 1.5 L 18.5 1.5 L 18.5 18.5")
+        : (root.bottom ? "M 18.5 18.5 L 1.5 18.5 L 1.5 1.5" : "M 18.5 1.5 L 1.5 1.5 L 1.5 18.5");
+}
+
+export component IconSlot inherits Rectangle {
+    // 0 = the first icon (default: the faction emblem), 1 = the second (default: none).
+    in property <int> slot;
+    // HellLocker 1.9.6: a folder's logo instead (default: the folder symbol), opened
+    // from a small tool button on the folder's header.
+    in property <bool> folder;
+    // Draw nothing: only the picker is used (opened with show()).
+    in property <bool> ghost;
+    in property <string> current-id;
+    in property <image> picture;
+    in property <bool> has-picture;
+    in property <int> faction;
+    in property <int> subfaction;
+    in property <bool> enabled: true;
+    // The picker's list, shared by both slots: what the search and group show.
+    in property <[IconChoice]> choices;
+    in property <[bool]> groups-present;
+    in-out property <string> search;
+    in-out property <int> group;
+    out property <bool> open: popup.is-open;
+    out property <bool> hovered: touch.has-hover;
+    // Ask for the list for this search text and group (0 = all).
+    callback filter(string, int);
+    callback opened();
+    callback chosen(string);
+    callback open-folder();
+    property <int> columns: 6;
+    property <length> cell: 46px;
+    width: root.folder ? 24px : 40px;
+    height: root.folder ? 24px : 32px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: root.ghost ? transparent : keys.has-focus || popup.is-open || root.folder ? Theme.button-outline : #ffd21f8c;
+    background: root.ghost ? transparent : touch.has-hover && root.enabled ? #ffffff14 : root.folder ? #0b0b0bcc : Theme.control;
+    accessible-role: button;
+    accessible-label: root.folder ? @tr("Folder logo") : root.slot == 0 ? @tr("First icon") : @tr("Second icon");
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.show(); }
+    forward-focus: keys;
+
+    public function show() {
+        if (root.enabled) {
+            root.search = "";
+            root.opened();
+            root.filter("", root.group);
+            popup.show();
+        }
+    }
+    function choose(id: string) {
+        popup.close();
+        if (id != root.current-id) { root.chosen(id); }
+    }
+
+    // On a folder header: a picture symbol.
+    if (root.folder && !root.ghost): Path {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: "M 3 4 L 21 4 L 21 20 L 3 20 Z M 3 17 L 9 11 L 13 15 L 16 12 L 21 17 M 16.5 8.5 A 1.5 1.5 0 1 1 13.5 8.5 A 1.5 1.5 0 1 1 16.5 8.5 Z";
+        fill: transparent;
+        stroke: touch.has-hover ? #fff3b0 : Theme.button-outline;
+        stroke-width: 1.5px;
+    }
+    if (!root.folder): SlotPicture {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 24px;
+        height: 24px;
+        has-picture: root.has-picture;
+        picture: root.picture;
+        emblem: root.slot == 0;
+        faction: root.faction;
+        subfaction: root.subfaction;
+        opacity: root.enabled ? 1 : 0.5;
+    }
+    keys := FocusScope {
+        // A ghost slot must not take clicks meant for what is under it.
+        enabled: root.enabled && !root.ghost;
+        key-pressed(event) => {
+            if ((event.text == Key.Return || event.text == Key.Space) && !event.repeat) {
+                root.show();
+                return accept;
+            }
+            return reject;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled && !root.ghost;
+        mouse-cursor: pointer;
+        clicked => { keys.focus(); root.show(); }
+        Tooltip {
+            text: @markdown("\{root.folder ? @tr("Change the folder's logo") : root.slot == 0 ? @tr("First icon: shown beside the preset's name. Click to change it.") : @tr("Second icon: shown beside the first. Click to pick one.")}");
+        }
+    }
+
+    popup := PopupWindow {
+        x: root.width - self.width;
+        y: root.height + 4px;
+        width: 128px + root.columns * root.cell + 34px;
+        height: 400px;
+        close-policy: close-on-click-outside;
+        forward-focus: search-input;
+        // Styled like the Settings window: striped black, a yellow frame and corner
+        // brackets.
+        Rectangle {
+            background: #0b0b0c;
+            border-radius: 6px;
+            clip: true;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #000000cc;
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: @image-url("../../assets/button-stripes.png");
+                horizontal-tiling: repeat;
+                vertical-tiling: repeat;
+            }
+            Rectangle { border-width: 2px; border-color: Theme.button-outline; border-radius: 6px; }
+            PickerBracket { x: 6px; y: 6px; }
+            PickerBracket { x: parent.width - self.width - 6px; y: 6px; right: true; }
+            PickerBracket { x: 6px; y: parent.height - self.height - 6px; bottom: true; }
+            PickerBracket { x: parent.width - self.width - 6px; y: parent.height - self.height - 6px; right: true; bottom: true; }
+            VerticalLayout {
+                padding: 16px;
+                spacing: 8px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    height: 32px;
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: search-input.has-focus ? Theme.button-outline : #ffd21f8c;
+                        background: #000000b3;
+                        search-input := TextInput {
+                            x: 10px;
+                            width: parent.width - 20px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text <=> root.search;
+                            color: Theme.text;
+                            font-size: 13px;
+                            single-line: true;
+                            edited => { root.filter(self.text, root.group); }
+                            key-pressed(event) => {
+                                if (event.text == Key.Escape) { popup.close(); return accept; }
+                                return reject;
+                            }
+                        }
+                        if (root.search == ""): Text {
+                            x: 10px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: @tr("Search icons");
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    vertical-stretch: 1;
+                    // The groups.
+                    VerticalLayout {
+                        width: 118px;
+                        alignment: start;
+                        for name[index] in [@tr("All"), @tr("Factions"), @tr("Sub-factions"), @tr("Missions"), @tr("Stratagems"), @tr("Boosters"), @tr("Planet conditions"), @tr("Other"), @tr("Your icons")]: Rectangle {
+                            // Groups without icons take no room.
+                            visible: index < root.groups-present.length && root.groups-present[index];
+                            height: self.visible ? 30px : 0px;
+                            Rectangle {
+                                height: 28px;
+                                y: 0px;
+                                border-radius: 4px;
+                                background: index == root.group ? #ffd21f2e : group-touch.has-hover ? #ffd21f1a : transparent;
+                            }
+                            if (index == root.group): Rectangle {
+                                x: 0px; y: 6px; width: 3px; height: 16px;
+                                border-radius: 2px;
+                                background: Theme.accent;
+                            }
+                            Text {
+                                x: 10px;
+                                y: 0px;
+                                width: parent.width - 14px;
+                                height: 28px;
+                                vertical-alignment: center;
+                                text: name;
+                                color: index == root.group ? Theme.text : Theme.text-secondary;
+                                font-size: 12px;
+                                overflow: elide;
+                            }
+                            group-touch := TouchArea {
+                                clicked => {
+                                    root.group = index;
+                                    root.filter(root.search, index);
+                                    search-input.focus();
+                                }
+                            }
+                        }
+                    }
+                    // The pictures: the slot's default first, then the list.
+                    ScrollView {
+                        width: root.columns * root.cell + 4px;
+                        content-width: root.columns * root.cell;
+                        content-height: ceil((root.choices.length + 1) / root.columns) * root.cell;
+                        Rectangle {
+                            x: 0px;
+                            y: 0px;
+                            width: root.cell;
+                            height: root.cell;
+                            border-radius: 4px;
+                            border-width: root.current-id == "" ? 2px : 0px;
+                            border-color: Theme.button-outline;
+                            background: default-touch.has-hover ? #ffd21f26 : #00000066;
+                            SlotPicture {
+                                x: (parent.width - self.width) / 2;
+                                y: 4px;
+                                width: 26px;
+                                height: 26px;
+                                emblem: root.slot == 0;
+                                folder: root.folder;
+                                faction: root.faction;
+                                subfaction: root.subfaction;
+                            }
+                            Text {
+                                y: parent.height - 15px;
+                                width: parent.width;
+                                horizontal-alignment: center;
+                                text: root.slot == 0 || root.folder ? @tr("Default") : @tr("None");
+                                color: Theme.text-secondary;
+                                font-size: 9px;
+                                overflow: elide;
+                            }
+                            default-touch := TouchArea {
+                                clicked => { root.choose(""); }
+                                Tooltip {
+                                    text: @markdown("\{root.folder ? @tr("The folder symbol") : root.slot == 0 ? @tr("The faction's emblem (the sub-faction's when it has one)") : @tr("No second icon")}");
+                                }
+                            }
+                        }
+                        for choice[index] in root.choices: Rectangle {
+                            x: mod(index + 1, root.columns) * root.cell;
+                            y: floor((index + 1) / root.columns) * root.cell;
+                            width: root.cell;
+                            height: root.cell;
+                            border-radius: 4px;
+                            border-width: choice.id == root.current-id ? 2px : 0px;
+                            border-color: Theme.button-outline;
+                            background: choice-touch.has-hover ? #ffd21f26 : transparent;
+                            accessible-role: button;
+                            accessible-label: UiText.icon-name(choice.group, choice.tag, choice.name);
+                            accessible-action-default => { root.choose(choice.id); }
+                            Image {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                width: 34px;
+                                height: 34px;
+                                source: choice.picture;
+                                image-fit: contain;
+                            }
+                            choice-touch := TouchArea {
+                                clicked => { root.choose(choice.id); }
+                                Tooltip { text: @markdown("\{UiText.icon-name(choice.group, choice.tag, choice.name)}"); }
+                            }
+                        }
+                    }
+                }
+                if (root.choices.length == 0 && root.search != ""): Text {
+                    text: @tr("No icons match the search.");
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                }
+                // Where the player's own pictures go.
+                HorizontalLayout {
+                    spacing: 8px;
+                    height: 26px;
+                    Text {
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                        text: @tr("Add your own: PNG pictures in the icons folder.");
+                        color: Theme.text-secondary;
+                        font-size: 11px;
+                        overflow: elide;
+                    }
+                    Rectangle {
+                        width: folder-text.preferred-width + 20px;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: Theme.button-outline;
+                        background: folder-touch.has-hover ? #ffffff1a : transparent;
+                        folder-text := Text {
+                            text: @tr("Open folder");
+                            color: Theme.button-outline;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                        folder-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.open-folder(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

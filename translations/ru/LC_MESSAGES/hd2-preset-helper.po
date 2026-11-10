@@ -235,3 +235,366 @@ msgstr "Закрыть последнюю ошибку"
 # Tray.
 msgid "Exit"
 msgstr "Выход"
+
+msgid "Favourites"
+msgstr "Избранное"
+
+msgid "Recently used"
+msgstr "Недавние"
+
+msgid "Folder name"
+msgstr "Имя папки"
+
+msgid "Rename folder"
+msgstr "Переименовать папку"
+
+msgid "Delete folder (its presets are kept)"
+msgstr "Удалить папку (наборы в ней сохранятся)"
+
+msgid "Scan equipment"
+msgstr "Сканировать снаряжение"
+
+msgid "Walks through every equipment list once and keeps each item's picture, so saving presets is quicker. Start on a loadout page and leave the game alone for a few minutes. Run it again after game updates."
+msgstr "Один раз проходит по каждому списку снаряжения и запоминает картинку каждого предмета, чтобы наборы сохранялись быстрее. Начните на странице снаряжения и не трогайте игру несколько минут. Повторите после обновлений игры."
+
+msgid "Show / hide"
+msgstr "Показать / скрыть"
+
+msgid "Global shortcut: shows or hides the panel from anywhere, also in game. Change it in Settings."
+msgstr "Глобальное сочетание клавиш: показывает или скрывает панель откуда угодно, в том числе в игре. Меняется в настройках."
+
+msgid "All factions"
+msgstr "Все фракции"
+
+msgid "Pick a faction first"
+msgstr "Сначала выберите фракцию"
+
+msgid "All sub-factions"
+msgstr "Все подфракции"
+
+msgid "All missions"
+msgstr "Все задания"
+
+msgid "Search presets"
+msgstr "Поиск наборов"
+
+msgid "Clear search"
+msgstr "Очистить поиск"
+
+msgid "+ New folder"
+msgstr "+ Новая папка"
+
+msgid "Favourite"
+msgstr "Избранное"
+
+msgid "Remove from Favourites"
+msgstr "Убрать из избранного"
+
+msgid "Add to Favourites"
+msgstr "Добавить в избранное"
+
+msgid "↑↓ / W S  ·  A / D faction  ·  Q / E mission"
+msgstr "↑↓ / W S  ·  A / D фракция  ·  Q / E задание"
+
+msgid "Keys while the panel has focus: select a preset, change the faction filter, change the mission filter"
+msgstr "Клавиши, когда панель в фокусе: выбрать набор, сменить фильтр фракции, сменить фильтр задания"
+
+msgid "Show the preset details"
+msgstr "Показать подробности набора"
+
+msgid "Hide the preset details"
+msgstr "Скрыть подробности набора"
+
+msgid "Duplicate preset (Ctrl+D)"
+msgstr "Дублировать набор (Ctrl+D)"
+
+msgid "Faction"
+msgstr "Фракция"
+
+msgid "Sub-faction"
+msgstr "Подфракция"
+
+msgid "Mission"
+msgstr "Задание"
+
+msgid "Unticked: left as they are when saving and applying"
+msgstr "Без галочки: остаются как есть при сохранении и применении"
+
+msgid "No presets match the search."
+msgstr "Нет наборов, подходящих под поиск."
+
+msgid "No presets for this filter yet. Use + New preset to make one."
+msgstr "Для этого фильтра пока нет наборов. Создайте набор кнопкой + Новый набор."
+
+msgid "Notes"
+msgstr "Заметки"
+
+msgid "Saved when you click away"
+msgstr "Сохраняются, когда вы щёлкаете в другом месте"
+
+msgid "Add notes: what this loadout is for, what to bring, who runs what…"
+msgstr "Добавьте заметки: для чего этот набор, что брать, кто чем занимается…"
+
+msgid "Stop (Backspace)"
+msgstr "Остановить (Backspace)"
+
+msgid "SETTINGS"
+msgstr "НАСТРОЙКИ"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Gameplay"
+msgstr "Игра"
+
+msgid "Panel"
+msgstr "Панель"
+
+msgid "Help"
+msgstr "Справка"
+
+msgid "APPLYING PRESETS"
+msgstr "ПРИМЕНЕНИЕ НАБОРОВ"
+
+msgid "Only when all four Stratagem slots start empty."
+msgstr "Только если все четыре ячейки стратагем сначала пусты."
+
+msgid "Automatic Readying"
+msgstr "Автоготовность"
+
+msgid "Ready up after a preset with a Booster is applied."
+msgstr "Отмечает готовность после применения набора с усилителем."
+
+msgid "Patient mode"
+msgstr "Терпеливый режим"
+
+msgid "Waits up to three times longer for the game. Turn on if menus open slowly or the game hitches and presets stop partway."
+msgstr "Ждёт игру до трёх раз дольше. Включите, если меню открываются медленно или игра подтормаживает и наборы останавливаются на середине."
+
+msgid "SAVING PRESETS"
+msgstr "СОХРАНЕНИЕ НАБОРОВ"
+
+msgid "Booster Fallbacking"
+msgstr "Запасной усилитель"
+
+msgid "If the saved Booster is taken, wait for you to pick another and save it as the fallback."
+msgstr "Если сохранённый усилитель уже занят, ждёт, пока вы выберете другой, и сохраняет его как запасной."
+
+msgid "Sound when saved"
+msgstr "Звук при сохранении"
+
+msgid "A short Windows chime when a preset has been saved."
+msgstr "Короткий звук Windows после сохранения набора."
+
+msgid "Reset this tab"
+msgstr "Сбросить эту вкладку"
+
+msgid "BEHAVIOUR"
+msgstr "ПОВЕДЕНИЕ"
+
+msgid "Keep the panel open"
+msgstr "Не скрывать панель"
+
+msgid "Stays up when you click the game, so it can sit on another monitor."
+msgstr "Остаётся на экране, когда вы щёлкаете в игре, поэтому её можно держать на другом мониторе."
+
+msgid "Start with Windows"
+msgstr "Запускать вместе с Windows"
+
+msgid "Starts HellLocker in the tray when you sign in."
+msgstr "Запускает HellLocker в области уведомлений при входе в систему."
+
+msgid "Where the panel and the status pop-up appear."
+msgstr "Где появляются панель и уведомление о ходе работы."
+
+msgid "Status pop-up"
+msgstr "Уведомление о ходе работы"
+
+msgid "The small notice that shows progress while the panel is hidden."
+msgstr "Небольшое уведомление о ходе работы, пока панель скрыта."
+
+msgid "Top right"
+msgstr "Справа вверху"
+
+msgid "Top left"
+msgstr "Слева вверху"
+
+msgid "Off"
+msgstr "Выкл."
+
+msgid "LOOK"
+msgstr "ВНЕШНИЙ ВИД"
+
+msgid "Panel size"
+msgstr "Размер панели"
+
+msgid "On top of Windows display scaling. Applies after a restart."
+msgstr "В дополнение к масштабу экрана Windows. Применяется после перезапуска."
+
+msgid "Background"
+msgstr "Фон"
+
+msgid "How solid the background art is. Shows as you drag."
+msgstr "Насколько плотная фоновая картинка. Видно сразу при перетаскивании."
+
+msgid "Follow system, or pick one."
+msgstr "Как в системе или выбрать язык."
+
+msgid "BEFORE YOU PLAY"
+msgstr "ПЕРЕД ИГРОЙ"
+
+msgid "Check my setup"
+msgstr "Проверить настройку"
+
+msgid "Looks at the game's window and resolution, HDR, overlays and the equipment scan, and says what to change. Nothing is clicked."
+msgstr "Смотрит окно и разрешение игры, HDR, оверлеи и сканирование снаряжения и подсказывает, что изменить. Ничего не нажимается."
+
+msgid "Check again"
+msgstr "Проверить снова"
+
+msgid "Check"
+msgstr "Проверить"
+
+msgid "REPORT A PROBLEM"
+msgstr "СООБЩИТЬ О ПРОБЛЕМЕ"
+
+msgid "Report a bug"
+msgstr "Сообщить об ошибке"
+
+msgid "Opens the Bugs tab on the HellLocker Nexus page. Say what you did, and attach app.log and last_failure.zip from the data folder."
+msgstr "Открывает вкладку Bugs на странице HellLocker в Nexus. Опишите, что вы делали, и приложите app.log и last_failure.zip из папки данных."
+
+msgid "Open Bugs tab"
+msgstr "Открыть вкладку Bugs"
+
+msgid "Data folder"
+msgstr "Папка данных"
+
+msgid "Your presets, settings, app.log and last_failure.zip."
+msgstr "Ваши наборы, настройки, app.log и last_failure.zip."
+
+msgid "Open folder"
+msgstr "Открыть папку"
+
+msgid "System info"
+msgstr "Сведения о системе"
+
+msgid "Copies your HellLocker version, Windows version, displays and game display settings, to paste into a bug report. No names or file paths."
+msgstr "Копирует версию HellLocker, версию Windows, мониторы и настройки изображения игры, чтобы вставить в сообщение об ошибке. Без имён и путей к файлам."
+
+msgid "YOUR PRESETS"
+msgstr "ВАШИ НАБОРЫ"
+
+msgid "Back up presets"
+msgstr "Резервная копия наборов"
+
+msgid "Saves every preset, its pictures and your settings into one zip file."
+msgstr "Сохраняет все наборы, их картинки и ваши настройки в один zip-файл."
+
+msgid "Save backup…"
+msgstr "Сохранить копию…"
+
+msgid "Restore from a backup"
+msgstr "Восстановить из резервной копии"
+
+msgid "Replaces your presets and settings with a backup, then restarts HellLocker. What you have now is kept in backups\\before-restore.zip."
+msgstr "Заменяет наборы и настройки резервной копией и перезапускает HellLocker. Текущее состояние остаётся в backups\\before-restore.zip."
+
+msgid "Restore…"
+msgstr "Восстановить…"
+
+msgid "Shortcuts pause while you record one."
+msgstr "Пока вы записываете сочетание, остальные сочетания приостановлены."
+
+msgid "These act right away; Save is only for settings."
+msgstr "Это выполняется сразу; «Сохранить» относится только к настройкам."
+
+msgid "Changes apply when you press Save."
+msgstr "Изменения вступают в силу после нажатия «Сохранить»."
+
+msgid "Also used by another shortcut"
+msgstr "Также используется другим сочетанием"
+
+msgid "Esc cancels"
+msgstr "Esc — отмена"
+
+msgid "Click a shortcut, then press your keys. The panel shortcut works anywhere; preset shortcuts work in the game or panel."
+msgstr "Щёлкните сочетание и нажмите клавиши. Сочетание панели работает везде, сочетания наборов — в игре или в панели."
+
+msgid "Num0–Num9 are keypad keys: keep Num Lock on and avoid Shift with them."
+msgstr "Num0–Num9 — клавиши цифрового блока: держите Num Lock включённым и не нажимайте их вместе с Shift."
+
+msgid "to stop"
+msgstr "— остановить"
+
+msgid "Icons"
+msgstr "Значки"
+
+msgid "First icon"
+msgstr "Первый значок"
+
+msgid "Second icon"
+msgstr "Второй значок"
+
+msgid "First icon: shown beside the preset's name. Click to change it."
+msgstr "Первый значок: показывается рядом с названием набора. Щёлкните, чтобы изменить."
+
+msgid "Second icon: shown beside the first. Click to pick one."
+msgstr "Второй значок: показывается рядом с первым. Щёлкните, чтобы выбрать."
+
+msgid "Search icons"
+msgstr "Поиск значков"
+
+msgid "All"
+msgstr "Все"
+
+msgid "Factions"
+msgstr "Фракции"
+
+msgid "Sub-factions"
+msgstr "Подфракции"
+
+msgid "Missions"
+msgstr "Задания"
+
+msgid "Stratagems"
+msgstr "Стратагемы"
+
+msgid "Boosters"
+msgstr "Усилители"
+
+msgid "Other"
+msgstr "Другое"
+
+msgid "Your icons"
+msgstr "Ваши значки"
+
+msgid "Default"
+msgstr "По умолчанию"
+
+msgid "None"
+msgstr "Нет"
+
+msgid "The faction's emblem (the sub-faction's when it has one)"
+msgstr "Эмблема фракции (или подфракции, если она выбрана)"
+
+msgid "No second icon"
+msgstr "Без второго значка"
+
+msgid "No icons match the search."
+msgstr "Нет значков, подходящих под поиск."
+
+msgid "Add your own: PNG pictures in the icons folder."
+msgstr "Свои значки: положите PNG-картинки в папку icons."
+
+msgid "Planet conditions"
+msgstr "Условия на планете"
+
+msgid "Folder logo"
+msgstr "Логотип папки"
+
+msgid "Change the folder's logo"
+msgstr "Сменить логотип папки"
+
+msgid "The folder symbol"
+msgstr "Значок папки"

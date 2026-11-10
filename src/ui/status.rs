@@ -82,6 +82,7 @@ impl Status {
             self.window.set_booster(StatusItem::default());
             self.window.set_picture(slint::Image::default());
         }
+        let progress = self.progress(&event);
         let (message, tone, seconds) = match event {
             AppEvent::PresetStarted { .. } => ("Starting".into(), Working, None),
             AppEvent::HotkeyReleaseRequested { .. } => (
@@ -159,7 +160,36 @@ impl Status {
         };
         self.window.set_message(message.into());
         self.window.set_tone(tone);
+        self.window.set_progress(progress);
+        self.window.set_stop_key(crate::cancel::STOP_KEY.into());
         self.hide_at = seconds.map(|seconds| Instant::now() + Duration::from_secs(seconds));
+    }
+
+    /// HellLocker 1.9.4: how far along the current step is, for the bar (-1 = no bar).
+    fn progress(&self, event: &AppEvent) -> f32 {
+        let slots = crate::item::EquipmentKind::ALL.len() as f32;
+        match event {
+            AppEvent::PresetStarted { .. } | AppEvent::EquipmentActionStarted { .. } => 0.0,
+            AppEvent::StratagemsApplyStarted { .. } => 0.0,
+            AppEvent::StratagemsProgress { remaining } => {
+                let total = self.window.get_stratagems().row_count().max(1) as f32;
+                (total - remaining.len() as f32).max(0.0) / total
+            }
+            AppEvent::BoosterProgress { confirmed, .. } => {
+                if *confirmed {
+                    1.0
+                } else {
+                    0.9
+                }
+            }
+            AppEvent::EquipmentProgress { kind, confirmed } => {
+                (kind.index() as f32 + if *confirmed { 1.0 } else { 0.0 }) / slots
+            }
+            AppEvent::ScanProgress { kind, .. } => kind.index() as f32 / slots,
+            AppEvent::EquipmentCaching { .. } => self.window.get_progress(),
+            AppEvent::PresetDone { .. } => 1.0,
+            _ => -1.0,
+        }
     }
 
     /// Load only at the start or when switching to the fallback Booster.

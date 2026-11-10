@@ -82,6 +82,36 @@ app's `data` folder into `%APPDATA%\HellLocker` (start HellLocker once first so
 the folder exists, then close it from the tray). Old presets show up as General;
 set their faction and mission with the For boxes.
 
+## Linux and Steam Deck (experimental)
+
+HellLocker is a Windows program, so on Linux it runs under Wine / Proton like the game.
+Two things matter:
+
+1. **It has to run inside the game's own Proton prefix**, while the game is running.
+   A program started in any other Wine prefix can't see the game at all, which is why
+   HellLocker says "Helldivers 2 is not running". With
+   [protontricks](https://github.com/Matoking/protontricks) installed, start the game,
+   then run:
+
+   ```
+   protontricks-launch --appid 553850 /path/to/HellLocker.exe
+   ```
+
+   With the Flatpak version of protontricks:
+
+   ```
+   flatpak run --command=protontricks-launch com.github.Matoking.protontricks --appid 553850 /path/to/HellLocker.exe
+   ```
+
+2. **Use an X11 desktop session** (Linux Mint Cinnamon uses X11 by default). HellLocker
+   copies the game's picture from the screen; under Wayland the copy comes out black.
+   On the Steam Deck, Desktop Mode may work; Game Mode is untested.
+
+Settings > Help > **Check my setup** says when HellLocker is running under Wine and
+whether it can see the game. HDR isn't supported on Linux. If something doesn't work,
+attach `app.log` from the data folder (inside the prefix:
+`drive_c/users/steamuser/AppData/Roaming/HellLocker`) to a bug report.
+
 ## Files
 
 Everything is kept in `%APPDATA%\HellLocker` (type that into the Explorer
@@ -97,6 +127,7 @@ stick), put an empty file named `portable.txt` next to `HellLocker.exe`.
 |---|---|
 | `config.toml` | Presets' names, shortcuts, faction and mission; settings |
 | `presets.json`, `local_templates\` | The saved loadouts |
+| `icons\` | Your own preset icons (PNG pictures) |
 | `app.log` | The log; include it with a bug report |
 | `last_failure.zip` | Details of the last save/apply that failed |
 | `backups\before-restore.zip` | Your presets as they were before the last restore |
@@ -105,6 +136,135 @@ stick), put an empty file named `portable.txt` next to `HellLocker.exe`.
 settings) to one zip, and restores from one. To report a bug, use **Report a bug**
 there (it opens the Bugs tab of the HellLocker Nexus page) and attach `app.log`
 and `last_failure.zip`; **System info → Copy** gives details worth pasting in.
+
+## Changes in 1.9.7
+
+### Linux and Steam Deck (experimental)
+
+- HellLocker now runs under Wine / Proton: it copies the game's picture from the screen
+  there (Windows' own capture doesn't exist under Wine). See "Linux and Steam Deck"
+  above for how to start it inside the game's Proton prefix.
+- When it can't find the game under Wine, it says to start it inside the game's prefix
+  (with the protontricks command) instead of "Helldivers 2 is not running".
+- Check my setup shows that it is running under Wine, and the Wine version is in
+  `app.log`.
+- A black screen copy (Wayland) is noted in `app.log`.
+
+## Changes in 1.9.6
+
+### Folder logos
+
+- Each folder can show a logo instead of the folder symbol: hover the folder and click
+  the picture button next to rename and delete. It uses the same picker (and your own
+  icons); **Default** goes back to the folder symbol.
+
+### Two columns of presets
+
+- The preset list shows presets two to a line, so about twice as many fit (around 20
+  with a folder or two open). Rows are a little shorter.
+- The Stratagems no longer show on each row; they show on the right for the selected
+  (or hovered) preset. A preset with nothing saved shows "Not saved" under its name.
+- Up / Down (and W / S) move to the preset above or below; Left / Right move across.
+  A / D still change the faction filter.
+- Dragging drops a preset before or after the one under the mouse (left or right
+  half), or into a folder by dropping it on the folder's header, as before.
+- The panel is a little wider to make room (1320 x 820, or 702 wide collapsed).
+
+### Icon picker
+
+- The icon picker now has the Settings window's look: striped black with a yellow frame
+  and corner brackets.
+
+### Equipment cards
+
+- Item pictures are bigger: their plain margins are trimmed and the picture fills the
+  card (the cards are the same size), with the name over its foot.
+- Item names show in the panel's own font. HellLocker reads the name from the saved
+  picture of it with Windows' built-in text recognition, once per name (kept in
+  `library\names.json`). If Windows can't read it (for example no text recognition
+  for your Windows language), the card shows the picture of the name as before.
+
+### Fixes
+
+- Folders could get stuck open and Settings would not open. Double-clicking a folder
+  header (for example clicking it twice to close and reopen it) started renaming the
+  folder, which blocked both. Double-click no longer renames (use the rename button
+  that shows when you hover the folder), and Settings ends a rename in progress.
+- With a faction or mission filter set, folders (and Favourites / Recently used) can
+  be closed again; only a search opens them all.
+- A new folder made while a filter is set no longer disappears while you name it.
+
+## Changes in 1.9.5
+
+### Preset icons
+
+- **Two icons per preset**, shown beside its name in the list. Pick them with the two
+  **Icons** buttons next to Faction, Sub-faction and Mission on the right.
+- The first icon is the faction's emblem (or the sub-faction's) until you pick one;
+  the second is empty until you pick one. **Default** and **None** in the picker go
+  back to that.
+- The picker has every faction and sub-faction emblem, the four mission types, 51
+  mission objective and operation icons, 111 Stratagems, 20 Boosters and 12 planet
+  conditions (storms, fog, heat and so on), with a search box and groups.
+- **Your own icons**: put PNG pictures in the `icons` folder of the data folder
+  (the picker's **Open folder** button opens it). They show under **Your icons**
+  and are included in backups.
+- Copies made with Duplicate keep the icons.
+
+Stratagem icons: the SVG set by nvigneux,
+[Helldivers-2-Stratagems-icons-svg](https://github.com/nvigneux/Helldivers-2-Stratagems-icons-svg),
+shared for use in other projects. Mission, operation, Booster and planet condition
+icons: from the [Helldivers Wiki](https://helldivers.wiki.gg/wiki/Category:Helldivers_2_-_Icons)
+(many traced by Dogo314).
+
+## Changes in 1.9.4
+
+### Preset list
+
+- **Favourites**: click the star on a preset to pin it in a Favourites section at the
+  top of the list (it stays in its folder too).
+- **Recently used**: the last five presets you applied, in a section under Favourites.
+  Both sections open and close like folders and follow the filters and search.
+- **Duplicate preset**: the copy button next to rename and delete (or **Ctrl+D**) makes
+  a copy with the same loadout, pictures, tags and notes, right under the original,
+  and starts renaming it. The copy gets no shortcut.
+- **Notes**: every preset has a notes box under Stratagems & Booster (what it's for,
+  what to bring, who runs what). Saved when you click away.
+
+### Panel
+
+- **Hide the details**: the tab on the divider folds the right side away, leaving just
+  the presets and filters in a narrow panel (the action buttons move to their own row).
+  Click it again to bring the details back. HellLocker remembers which you used.
+- **Stop an action**: press **Backspace** (or the panel's **Stop** button) to stop a
+  save, apply or scan. Nothing more is clicked, and it shows as stopped, not failed.
+- The progress pop-up now has a progress bar and shows the stop key.
+
+### Equipment scan
+
+- **Scan resume**: if a scan stops partway (you stopped it, the game lost focus, or
+  something went wrong), pressing **Scan equipment** again carries on where it left off.
+  Finished equipment slots are skipped, and items already pictured in the slot it
+  stopped in are passed without waiting for their pictures again. An unfinished scan
+  is kept for three days; after that, or at another game resolution, a scan starts over.
+
+### Help
+
+- **Check my setup** (Settings → Help) checks:
+  - the game's window mode and resolution, against your display;
+  - HDR;
+  - whether the equipment has been scanned;
+  - overlays that draw over the game (FPS counters, Steam overlay and others);
+  - the mouse wheel setting;
+  - whether the game runs as administrator.
+  It says what to change. Nothing is clicked.
+
+### Languages
+
+- German, French, Spanish (Spain and Latin America), Italian, Japanese, Korean, Polish,
+  Portuguese (Brazil and Portugal) and Russian now cover all of HellLocker's own text:
+  folders, the new Settings window and everything above. Faction, sub-faction and
+  mission names stay in English in those languages until the in-game names are added.
 
 ## Changes in 1.9.3
 
